@@ -109,7 +109,27 @@
   #today-comment,#cap{width:100%;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);
     padding:11px 12px;color:var(--text);font-family:inherit;font-size:16px;line-height:1.5;resize:vertical}
   #today-comment{min-height:70px}
-  #cap{min-height:130px}
+  #cap{min-height:120px}
+  /* voice note recorder */
+  .recbtn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:15px;
+    background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);
+    color:var(--text);font-family:inherit;font-size:16px;font-weight:600;cursor:pointer}
+  .recbtn svg{color:var(--hot)}
+  .reclive{display:flex;align-items:center;gap:11px;background:var(--surface);border:0.5px solid var(--hot);
+    border-radius:var(--radius);padding:13px 15px}
+  .recdot{width:11px;height:11px;border-radius:50%;background:var(--hot);flex:none;animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .rectime{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+  .recstop{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--hot);border:none;
+    border-radius:9px;color:#fff;font-family:inherit;font-size:14px;font-weight:600;padding:9px 14px;cursor:pointer}
+  .recstop svg{stroke:#fff;color:#fff}
+  .rechint{font-size:12.5px;line-height:1.5;color:var(--muted);margin:8px 2px 0}
+  .rechint.warn{color:var(--warn)}
+  .recreview{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:12px}
+  .recreview audio{width:100%;display:block}
+  .recrow{display:flex;gap:8px;margin-top:11px}
+  .ghostbtn{background:var(--surface2);border:none;border-radius:10px;color:var(--muted);
+    font-family:inherit;font-size:14px;padding:10px 13px;cursor:pointer}
   .row2{display:flex;margin-top:9px}
   button.primary{background:var(--accent);border:none;border-radius:10px;color:#fff;font:inherit;font-weight:600;padding:10px 14px;cursor:pointer;flex:1}
   /* priority */
@@ -185,6 +205,8 @@
     <p class="orient" style="margin-bottom:12px">Drop a thought into the vault. It lands in your inbox and routes like any capture.</p>
     <textarea id="cap" placeholder="Quick capture…"></textarea>
     <div class="row2"><button class="primary" id="cap-send">Send to vault</button></div>
+    <div class="sec" style="margin-top:26px"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18.5V21"/></svg><span>Voice note</span></div>
+    <div id="rec"></div>
   </section>
   <section id="view-sent" hidden></section>
 </main>
@@ -240,7 +262,9 @@ const P={
   spark:'<path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"/>',
   bolt:'<path d="M13 3L5.5 13.5H12l-1 7.5L18.5 10.5H12z"/>',
   plane:'<path d="M4 11.5L20 4l-7.5 16-2-6.5z"/><path d="M10.5 13.5L20 4"/>',
-  chev:'<path d="M9.5 6l6 6-6 6"/>'
+  chev:'<path d="M9.5 6l6 6-6 6"/>',
+  mic:'<path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18.5V21"/>',
+  stop:'<rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor" stroke="none"/>'
 };
 const ic=(n,s=18)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}">${P[n]||""}</svg>`;
 
@@ -266,7 +290,7 @@ function recordSent(e){const l=outbox();l.push({ts:Date.now(),...e});outboxWrite
 function sentFor(k){return outbox().filter(e=>e.key===k);}
 const fmtT=ts=>new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
 const fmtD=ts=>new Date(ts).toLocaleDateString([],{weekday:"long",month:"short",day:"numeric"});
-const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured"};
+const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured",voice:"Voice note"};
 function sentInner(k){
   return sentFor(k).map(e=>{
     const old=new Date(e.ts).toDateString()!==new Date().toDateString();
@@ -283,6 +307,18 @@ async function ghGet(p){const c=cfg();const r=await fetch(`https://api.github.co
 async function ghPut(p,content,message){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}`,
   {method:"PUT",headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github+json"},body:JSON.stringify({message,content:b64(content)})});
   if(!r.ok)throw new Error(r.status+"");}
+// Binary upload: the Contents API wants raw base64 of the bytes, not utf-8-then-btoa.
+async function ghPutB64(p,b64content,message){const c=cfg();
+  const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}`,
+  {method:"PUT",headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github+json"},
+   body:JSON.stringify({message,content:b64content})});
+  if(!r.ok)throw new Error(r.status+"");}
+const blobB64=b=>new Promise((res,rej)=>{const r=new FileReader();
+  r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=()=>rej(new Error("read"));r.readAsDataURL(b);});
+// Same filename shape the Shortcut drop uses, so downstream handling is identical.
+function stampName(){const d=new Date(),p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;}
+
 async function sendIntent(intent){if(!have()){openSettings();throw new Error("nocfg");}
   const id=`${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
   await ghPut(`inbox/${id}.json`,JSON.stringify({id,ts:new Date().toISOString(),...intent},null,2),`intent: ${intent.type}`);}
@@ -506,7 +542,7 @@ async function load(){
   const cN=localStorage.op_today,cR=localStorage.op_reg;
   if(cN)$("#view-today").innerHTML=renderToday(cN);
   if(cR)renderPriority(JSON.parse(cR));
-  renderSentView();
+  renderSentView();renderRec();
   if(!have()){$("#view-today").innerHTML='<div class="empty">Tap ⚙ to connect your repo.</div>';return;}
   try{const[note,reg]=await Promise.all([ghGet("today.md").catch(()=>cN||""),ghGet("priority-register.json").catch(()=>cR||"")]);
     if(note){localStorage.op_today=note;$("#view-today").innerHTML=renderToday(note);}
@@ -574,12 +610,105 @@ document.addEventListener("click",async e=>{
       ta.value="";ta.blur();refreshSent("__comment");toast("Comment sent");}catch{toast("Failed");}
     return;}
 
+  if(e.target.closest("#rec-start")||e.target.closest("#rec-retry")){startRec();return;}
+  if(e.target.closest("#rec-stop")){stopRec();return;}
+  if(e.target.closest("#rec-send")){sendRec();return;}
+  if(e.target.closest("#rec-again")){resetRec();startRec();return;}
+  if(e.target.closest("#rec-drop")){resetRec();toast("Discarded");return;}
+
   if(e.target.id==="tp-more"){const st=$("#tp-status");const open=st.classList.toggle("clamp");
     e.target.textContent=open?"Show all":"Show less";return;}
 
   if(e.target.id==="sent-clear"){localStorage.removeItem(OB);renderSentView();
     document.querySelectorAll("[data-sent]").forEach(n=>n.innerHTML="");toast("History cleared");return;}
 });
+
+// ---- voice notes -------------------------------------------------------
+// Records in-app and PUTs the audio straight into the repo's inbox/. The sync job
+// moves it into 00_Inbox/, where the existing audio-intake pass transcribes it exactly
+// as it does a Shortcut drop. This path never touches the iCloud mount.
+const MAXSEC=600;
+let RS={state:"idle",chunks:[],rec:null,stream:null,secs:0,tick:null,blob:null,url:"",ext:"m4a",err:""};
+const fmtDur=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+const sizeLbl=b=>b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,Math.round(b/1024))+" KB";
+
+function renderRec(){
+  const el=$("#rec");if(!el)return;
+  if(RS.state==="recording"){
+    const near=RS.secs>=MAXSEC-120;
+    el.innerHTML=`<div class="reclive"><span class="recdot"></span>
+      <span class="rectime" id="rec-time">${fmtDur(RS.secs)}</span>
+      <button class="recstop" id="rec-stop">${ic("stop",16)} Stop</button></div>
+      <p class="rechint${near?" warn":""}">${near?"Auto-stops at 10:00.":"Recording. Tap Stop when you're done."}</p>`;
+  } else if(RS.state==="review"){
+    el.innerHTML=`<div class="recreview"><audio controls preload="metadata" src="${RS.url}"></audio>
+      <p class="rechint" style="margin-top:9px">${fmtDur(RS.secs)} · ${sizeLbl(RS.blob.size)}</p>
+      <div class="recrow"><button class="primary" id="rec-send">Send voice note</button>
+        <button class="ghostbtn" id="rec-again">Redo</button>
+        <button class="ghostbtn" id="rec-drop">Discard</button></div></div>`;
+  } else if(RS.state==="sending"){
+    el.innerHTML=`<div class="recreview"><p class="rechint" style="margin:0">Uploading ${sizeLbl(RS.blob.size)}…</p></div>`;
+  } else if(RS.state==="blocked"){
+    el.innerHTML=`<div class="recreview"><p class="rechint" style="margin:0">${esc(RS.err)}</p>
+      <div class="recrow"><button class="ghostbtn" id="rec-retry">Try again</button></div></div>`;
+  } else {
+    el.innerHTML=`<button class="recbtn" id="rec-start">${ic("mic",21)} Record a voice note</button>
+      <p class="rechint">Lands in your inbox and gets transcribed on the next run, same as a Shortcut drop. Up to 10 minutes.</p>`;
+  }
+}
+function resetRec(){
+  if(RS.url)URL.revokeObjectURL(RS.url);
+  clearInterval(RS.tick);
+  RS={state:"idle",chunks:[],rec:null,stream:null,secs:0,tick:null,blob:null,url:"",ext:RS.ext,err:""};
+  renderRec();
+}
+async function startRec(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){
+    RS.state="blocked";RS.err="This browser can't record audio. Drop the memo through your Shortcut instead.";renderRec();return;}
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){RS.state="blocked";
+    RS.err=(e&&e.name==="NotAllowedError")
+      ? "Microphone permission denied. Allow it for this site, then try again."
+      : "Couldn't open the microphone"+(e&&e.name?` (${e.name})`:"")+". Drop the memo through your Shortcut instead.";
+    renderRec();return;}
+  let mt="";
+  for(const c of ["audio/mp4","audio/aac","audio/mpeg","audio/webm;codecs=opus","audio/webm"])
+    if(window.MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(c)){mt=c;break;}
+  RS.ext=(!mt||/mp4|aac/.test(mt))?"m4a":(/mpeg/.test(mt)?"mp3":"webm");
+  let rec;
+  try{rec=mt?new MediaRecorder(stream,{mimeType:mt,audioBitsPerSecond:32000}):new MediaRecorder(stream);}
+  catch(e){try{rec=new MediaRecorder(stream);RS.ext="m4a";}
+    catch(e2){stream.getTracks().forEach(t=>t.stop());
+      RS.state="blocked";RS.err="Recording isn't supported here. Use your Shortcut instead.";renderRec();return;}}
+  RS.chunks=[];RS.rec=rec;RS.stream=stream;RS.secs=0;RS.state="recording";
+  rec.ondataavailable=e=>{if(e.data&&e.data.size)RS.chunks.push(e.data);};
+  rec.onstop=()=>{
+    clearInterval(RS.tick);RS.tick=null;
+    try{RS.stream.getTracks().forEach(t=>t.stop());}catch{}
+    RS.blob=new Blob(RS.chunks,{type:mt||"audio/mp4"});
+    if(!RS.blob.size){RS.state="blocked";RS.err="Nothing was recorded. Try again.";renderRec();return;}
+    RS.url=URL.createObjectURL(RS.blob);RS.state="review";renderRec();};
+  rec.start();renderRec();
+  RS.tick=setInterval(()=>{
+    RS.secs++;
+    const t=$("#rec-time");if(t)t.textContent=fmtDur(RS.secs);
+    if(RS.secs===MAXSEC-120)renderRec();
+    if(RS.secs>=MAXSEC)stopRec();},1000);
+}
+function stopRec(){clearInterval(RS.tick);RS.tick=null;
+  if(RS.rec&&RS.rec.state!=="inactive"){try{RS.rec.stop();}catch{}}}
+async function sendRec(){
+  if(!RS.blob)return;
+  const secs=RS.secs,blob=RS.blob;
+  RS.state="sending";renderRec();
+  try{
+    const name=`${stampName()}.${RS.ext}`;
+    await ghPutB64(`inbox/${name}`,await blobB64(blob),`voice capture: ${name}`);
+    recordSent({key:"__voice",type:"voice",label:`${fmtDur(secs)} · ${name}`,text:""});
+    resetRec();toast("Voice note sent");
+  }catch(e){RS.state="review";renderRec();toast(e.message==="nocfg"?"Connect your repo first":"Upload failed");}
+}
 
 $("#cap-send").onclick=async()=>{const v=$("#cap").value.trim();if(!v)return;
   try{await sendIntent({type:"capture",text:v});
