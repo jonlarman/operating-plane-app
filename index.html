@@ -115,11 +115,31 @@
   /* priority */
   .bkt{display:flex;align-items:center;gap:8px;margin:16px 0 6px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
   .dot{width:9px;height:9px;border-radius:50%}
-  .pcard{background:var(--surface);border:0.5px solid var(--line);border-left:3px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin:8px 0}
-  .pcard .pt{font-weight:600;font-size:14px}
-  .pcard .ps{color:var(--muted);font-size:13px;margin-top:2px;line-height:1.45}
-  .pcard .pm{color:var(--faint);font-size:11px;margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
+  /* compact rows: title + next trigger only. Everything else lives in the tap-through sheet. */
+  .pgroup{background:var(--surface);border:0.5px solid var(--line);border-left:3px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;margin:0 0 4px}
+  .prow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;
+    border-top:0.5px solid var(--line);padding:11px 12px;color:var(--text);font-family:inherit;cursor:pointer}
+  .pgroup .prow:first-child{border-top:none}
+  .prow:active{background:var(--surface2)}
+  .prow .pw{flex:1;min-width:0}
+  .prow .pt2{display:block;font-size:14px;font-weight:600;line-height:1.35}
+  .prow .pnx{display:block;font-size:12px;color:var(--muted);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prow .pnx.none{color:var(--faint)}
+  .prow > svg{width:16px;height:16px;color:var(--faint)}
   .flag{color:var(--warn)}
+  /* topic detail sheet */
+  /* stacked label/value: the status blobs need the full width */
+  .dl{padding:10px 0;border-top:0.5px solid var(--line)}
+  .dl:first-child{border-top:none;padding-top:4px}
+  .dk{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--faint);margin-bottom:3px}
+  .dv{display:block;font-size:14px;line-height:1.5}
+  /* register status blobs run to thousands of characters — clamp, with a way to open them */
+  .clamp{display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden}
+  .morebtn{margin-top:6px;background:none;border:none;color:var(--accent);
+    font-family:inherit;font-size:13px;font-weight:600;padding:0;cursor:pointer}
   .empty{color:var(--muted);text-align:center;padding:44px 16px;line-height:1.6}
   /* sent view */
   .daylbl{font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 7px}
@@ -137,7 +157,8 @@
     display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;cursor:pointer}
   .tabs button svg{width:22px;height:22px}
   .tabs button.on{color:var(--accent)}
-  dialog{border:none;border-radius:16px;background:var(--surface);color:var(--text);padding:18px;width:min(92vw,420px)}
+  dialog{border:none;border-radius:16px;background:var(--surface);color:var(--text);padding:18px;
+    width:min(92vw,420px);max-height:82vh;overflow:auto}
   dialog::backdrop{background:rgba(0,0,0,.55)}
   dialog h3{margin:0 0 6px}
   dialog label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
@@ -177,6 +198,12 @@
 
 <div class="toast" id="toast"></div>
 
+<dialog id="topic">
+  <h3 id="tp-title"></h3>
+  <div id="tp-body"></div>
+  <div class="drow"><button class="primary" id="tp-close">Close</button></div>
+</dialog>
+
 <dialog id="settings">
   <h3>Connect your repo</h3>
   <p class="orient" style="margin:0;font-size:13px">Stored only on this device. Fine-grained token scoped to the operating-plane repo (Contents: read/write).</p>
@@ -212,7 +239,8 @@ const P={
   arrow:'<path d="M5 12h13"/><path d="M13 6.5l5.5 5.5-5.5 5.5"/>',
   spark:'<path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"/>',
   bolt:'<path d="M13 3L5.5 13.5H12l-1 7.5L18.5 10.5H12z"/>',
-  plane:'<path d="M4 11.5L20 4l-7.5 16-2-6.5z"/><path d="M10.5 13.5L20 4"/>'
+  plane:'<path d="M4 11.5L20 4l-7.5 16-2-6.5z"/><path d="M10.5 13.5L20 4"/>',
+  chev:'<path d="M9.5 6l6 6-6 6"/>'
 };
 const ic=(n,s=18)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}">${P[n]||""}</svg>`;
 
@@ -414,15 +442,49 @@ function asks(body){let html="",i=0;const L=body;
   return html;}
 
 // Priority
+// Rows carry only what you scan for: the title and what happens next. Status, signal age
+// and the vault note are one tap away in the detail sheet, so the board stays readable.
+let REG=null;
+const BUCKETS=[["hot","Hot"],["warm","Warm"],["cooling","Cooling"],["on_deck","On Deck"],
+  ["parked","Parked"],["stood_down","Stood Down"],["dead","Dead"]];
+const BLABEL=Object.fromEntries(BUCKETS);
 function renderPriority(reg){
+  REG=reg;
   if(!reg||!reg.topics){$("#view-priority").innerHTML='<div class="empty">No register yet.</div>';return;}
-  const B=[["hot","Hot"],["warm","Warm"],["cooling","Cooling"],["on_deck","On Deck"],["parked","Parked"],["stood_down","Stood Down"],["dead","Dead"]];
-  const by={};reg.topics.forEach(t=>(by[t.bucket]=by[t.bucket]||[]).push(t));let html="";
-  for(const[k,label]of B){const list=by[k];if(!list)continue;
+  const by={};reg.topics.forEach((t,i)=>{t._i=i;(by[t.bucket]=by[t.bucket]||[]).push(t);});
+  let html="";
+  for(const[k,label]of BUCKETS){
+    const list=by[k];if(!list)continue;
     html+=`<div class="bkt"><span class="dot" style="background:var(--${k})"></span>${label} · ${list.length}</div>`;
-    for(const t of list)html+=`<div class="pcard" style="border-left-color:var(--${k})"><div class="pt">${esc(t.title)} ${t.standdown_candidate?'<span class="flag">⏬</span>':""}</div>`+
-      (t.status?`<div class="ps">${esc(t.status)}</div>`:"")+`<div class="pm">${t.last_signal?`<span>sig ${t.last_signal}${t.days_since_signal!=null?` (${t.days_since_signal}d)`:""}</span>`:""}${t.next_trigger?`<span>next: ${esc(t.next_trigger)}</span>`:""}</div></div>`;}
-  $("#view-priority").innerHTML=html||'<div class="empty">Empty board.</div>';}
+    html+=`<div class="pgroup" style="border-left-color:var(--${k})">`;
+    for(const t of list){
+      html+=`<button class="prow" data-topic="${t._i}">
+        <span class="pw">
+          <span class="pt2">${esc(t.title)}${t.standdown_candidate?' <span class="flag">⏬</span>':""}</span>
+          <span class="pnx${t.next_trigger?"":" none"}">${t.next_trigger?"next: "+esc(t.next_trigger):"no next trigger set"}</span>
+        </span>${ic("chev",16)}</button>`;
+    }
+    html+=`</div>`;
+  }
+  $("#view-priority").innerHTML=html||'<div class="empty">Empty board.</div>';
+}
+function openTopic(i){
+  const t=REG&&REG.topics&&REG.topics[i];if(!t)return;
+  $("#tp-title").textContent=t.title;
+  const rows=[
+    ["Bucket",`<span class="dot" style="background:var(--${t.bucket});display:inline-block;vertical-align:middle;margin-right:7px"></span>${esc(BLABEL[t.bucket]||t.bucket)}${t.standdown_candidate?' <span class="flag">· ⏬ stand-down candidate</span>':""}`],
+    ["Status",t.status
+      ? `<span class="dvs${t.status.length>280?" clamp":""}" id="tp-status">${inline(t.status)}</span>`
+        +(t.status.length>280?`<button class="morebtn" id="tp-more">Show all</button>`:"")
+      : '<span style="color:var(--faint)">—</span>'],
+    ["Last signal",t.last_signal?`${esc(t.last_signal)}${t.days_since_signal!=null?` · ${t.days_since_signal}d ago`:""}`:'<span style="color:var(--faint)">none recorded</span>'],
+    ["Next",t.next_trigger?esc(t.next_trigger):'<span style="color:var(--faint)">none set</span>'],
+    ["Vault note",t.note?`<span class="wl">${esc(t.note)}</span>`:'<span style="color:var(--faint)">—</span>'],
+  ];
+  $("#tp-body").innerHTML=rows.map(([k,v])=>`<div class="dl"><span class="dk">${k}</span><span class="dv">${v}</span></div>`).join("");
+  $("#topic").showModal();
+  $("#topic").scrollTop=0;
+}
 
 // Sent
 function renderSentView(){
@@ -461,6 +523,9 @@ document.addEventListener("click",async e=>{
     $("#view-capture").hidden=v!=="capture";$("#view-sent").hidden=v!=="sent";
     if(v==="sent")renderSentView();
     window.scrollTo(0,0);return;}
+
+  const pr=e.target.closest("[data-topic]");
+  if(pr){openTopic(+pr.dataset.topic);return;}
 
   const cb=e.target.closest(".cb");
   if(cb&&!cb.classList.contains("done")){
@@ -509,6 +574,9 @@ document.addEventListener("click",async e=>{
       ta.value="";ta.blur();refreshSent("__comment");toast("Comment sent");}catch{toast("Failed");}
     return;}
 
+  if(e.target.id==="tp-more"){const st=$("#tp-status");const open=st.classList.toggle("clamp");
+    e.target.textContent=open?"Show all":"Show less";return;}
+
   if(e.target.id==="sent-clear"){localStorage.removeItem(OB);renderSentView();
     document.querySelectorAll("[data-sent]").forEach(n=>n.innerHTML="");toast("History cleared");return;}
 });
@@ -520,6 +588,9 @@ $("#cap-send").onclick=async()=>{const v=$("#cap").value.trim();if(!v)return;
 $("#reload").onclick=load;
 function openSettings(){const c=cfg();$("#cfg-owner").value=c.owner;$("#cfg-repo").value=c.repo;$("#cfg-token").value=c.token;$("#settings").showModal();}
 $("#gear").onclick=openSettings;$("#cfg-close").onclick=()=>$("#settings").close();
+$("#tp-close").onclick=()=>$("#topic").close();
+// tap the backdrop to dismiss either sheet
+for(const d of [$("#topic"),$("#settings")])d.addEventListener("click",e=>{if(e.target===d)d.close();});
 $("#cfg-save").onclick=()=>{localStorage.op_owner=$("#cfg-owner").value.trim();localStorage.op_repo=$("#cfg-repo").value.trim();localStorage.op_token=$("#cfg-token").value.trim();$("#settings").close();toast("Saved");load();};
 // Enter sends from any single-line reply field
 document.addEventListener("keydown",e=>{
