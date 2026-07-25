@@ -32,6 +32,13 @@
   header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.01em}
   header .r{display:flex;gap:6px;color:var(--muted)}
   header button{background:none;border:none;color:var(--muted);padding:6px;cursor:pointer}
+  /* pipeline heartbeat: age of the last sync run, straight from the repo */
+  #syncpill{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:0.5px solid var(--line);
+    border-radius:999px;padding:4px 9px;margin-right:2px;font-family:inherit;font-size:11px;font-weight:600;color:var(--muted)}
+  #syncpill .sdot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+  #syncpill.ok .sdot{background:var(--good)} #syncpill.ok{color:var(--good)}
+  #syncpill.warn .sdot{background:var(--warn)} #syncpill.warn{color:var(--warn)}
+  #syncpill.bad .sdot{background:var(--hot)} #syncpill.bad{color:var(--hot)}
   main{padding:14px 15px 8px;max-width:640px;margin:0 auto}
   /* today */
   .dhead{font-size:20px;font-weight:600;line-height:1.25;margin:2px 0 0}
@@ -225,6 +232,7 @@
 <header>
   <h1 id="htitle">Today</h1>
   <div class="r">
+    <button id="syncpill" aria-label="Pipeline status"><span class="sdot"></span><span id="sync-age">–</span></button>
     <button id="reload" aria-label="Reload"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 12a7 7 0 1 1-2-4.9"/><path d="M19 4v4h-4"/></svg></button>
     <button id="gear" aria-label="Settings"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5l2.6-1.5M17.2 9l2.6-1.5"/></svg></button>
   </div>
@@ -253,6 +261,12 @@
 </nav>
 
 <div class="toast" id="toast"></div>
+
+<dialog id="sync">
+  <h3>Pipeline</h3>
+  <div id="sy-body"></div>
+  <div class="drow"><button class="primary" id="sy-close">Close</button></div>
+</dialog>
 
 <dialog id="review">
   <h3 id="rv-title"></h3>
@@ -571,6 +585,44 @@ function openTopic(i){
   $("#topic").scrollTop=0;
 }
 
+// ---- pipeline heartbeat -------------------------------------------------
+// sync-job.mjs publishes sync-status.json every run. The app watches its AGE, which catches a
+// stalled pipeline whatever the cause — including a broken push, where no error could reach us.
+let SYNC=null;
+const relAge=ms=>{const m=Math.round(ms/60000);
+  if(m<1)return "now"; if(m<60)return m+"m";
+  const h=Math.round(m/60); if(h<48)return h+"h"; return Math.round(h/24)+"d";};
+function renderSync(){
+  const pill=$("#syncpill"),age=$("#sync-age");
+  if(!SYNC||!SYNC.at){pill.className="";age.textContent="?";return;}
+  const ms=Date.now()-Date.parse(SYNC.at);
+  pill.className=ms<30*60000?"ok":ms<3*3600000?"warn":"bad";
+  age.textContent=relAge(ms);
+}
+function openSync(){
+  const b=$("#sy-body");
+  if(!SYNC||!SYNC.at){
+    b.innerHTML=`<div class="dl"><span class="dk">No status</span><span class="dv">The sync job hasn't published <code>sync-status.json</code>. Either it has never run since this was added, or the machine is running an older copy of the script.</span></div>`;
+    $("#sync").showModal();return;}
+  const ms=Date.now()-Date.parse(SYNC.at);
+  const p=SYNC.pushes||{},a=SYNC.applied||{},pub=SYNC.published||{},sc=SYNC.script||{};
+  const bad=v=>/^failed/i.test(v||"")?`<span style="color:var(--hot)">${esc(v)}</span>`:esc(v||"—");
+  const rows=[
+    ["Last run",`${ms<60000?"just now":relAge(ms)+" ago"} · ${new Date(SYNC.at).toLocaleString()}${
+      ms>3*3600000?'<br><span style="color:var(--hot)">Stalled — nothing has run in hours.</span>':""}`],
+    ["Published",`${pub.today?esc(pub.today):"no daily note"} · ${pub.register_topics??"?"} topics · ${pub.review_items??"?"} reviews`],
+    ["Applied",`${a.intents||0} intent${a.intents===1?"":"s"}${a.voice?`, ${a.voice} voice`:""}${a.cleared?`, ${a.cleared} cleared`:""}`],
+    ["Pull",bad(SYNC.pull)],
+    ["Push · data",bad(p.data)],
+    ["Push · app shell",bad(p.app)],
+    ["Script",`v${esc(sc.version||"?")}<br><code>${esc(sc.path||"?")}</code>${
+      sc.modified?`<br><span style="color:var(--faint)">modified ${new Date(sc.modified).toLocaleString()}</span>`:""}`],
+  ];
+  if(SYNC.notes&&SYNC.notes.length)rows.push(["Notes",SYNC.notes.map(esc).join("<br>")]);
+  b.innerHTML=rows.map(([k,v])=>`<div class="dl"><span class="dk">${k}</span><span class="dv">${v}</span></div>`).join("");
+  $("#sync").showModal();
+}
+
 // ---- Review queue -------------------------------------------------------
 // The vault stays the source of truth. Resolving here appends a `## Resolution` section to the
 // note, which is one of the orchestrator's three resolution signals — identical to typing it in
@@ -666,16 +718,21 @@ function renderSentView(){
 }
 
 async function load(){
-  const cN=localStorage.op_today,cR=localStorage.op_reg,cV=localStorage.op_review;
+  const cN=localStorage.op_today,cR=localStorage.op_reg,cV=localStorage.op_review,cS=localStorage.op_status;
+  if(cS){try{SYNC=JSON.parse(cS);}catch{}}
+  renderSync();
   if(cN)$("#view-today").innerHTML=renderToday(cN);
   if(cR)renderPriority(JSON.parse(cR));
   if(cV){try{RVQ=JSON.parse(cV);}catch{}}
   renderReview();renderSentView();renderRec();
   if(!have()){$("#view-today").innerHTML='<div class="empty">Tap ⚙ to connect your repo.</div>';return;}
-  try{const[note,reg,rev]=await Promise.all([
+  try{const[note,reg,rev,sta]=await Promise.all([
       ghGet("today.md").catch(()=>cN||""),
       ghGet("priority-register.json").catch(()=>cR||""),
-      ghGet("review-queue.json").catch(()=>cV||"")]);
+      ghGet("review-queue.json").catch(()=>cV||""),
+      ghGet("sync-status.json").catch(()=>"")]);
+    if(sta){localStorage.op_status=sta;try{SYNC=JSON.parse(sta);}catch{}}
+    renderSync();
     if(note){localStorage.op_today=note;$("#view-today").innerHTML=renderToday(note);}
     if(reg){localStorage.op_reg=reg;renderPriority(JSON.parse(reg));}
     if(rev){localStorage.op_review=rev;try{RVQ=JSON.parse(rev);renderReview();}catch{}}}
@@ -857,10 +914,12 @@ $("#cap-send").onclick=async()=>{const v=$("#cap").value.trim();if(!v)return;
     $("#cap").value="";$("#cap").blur();toast("Captured");}catch{toast("Failed");}};
 $("#reload").onclick=load;
 function openSettings(){const c=cfg();$("#cfg-owner").value=c.owner;$("#cfg-repo").value=c.repo;$("#cfg-token").value=c.token;$("#settings").showModal();}
+$("#syncpill").onclick=openSync;$("#sy-close").onclick=()=>$("#sync").close();
+setInterval(renderSync,60000);            // let the age tick over while the app sits open
 $("#gear").onclick=openSettings;$("#cfg-close").onclick=()=>$("#settings").close();
 $("#tp-close").onclick=()=>$("#topic").close();
 // tap the backdrop to dismiss either sheet
-for(const d of [$("#topic"),$("#settings"),$("#review")])d.addEventListener("click",e=>{if(e.target===d)d.close();});
+for(const d of [$("#topic"),$("#settings"),$("#review"),$("#sync")])d.addEventListener("click",e=>{if(e.target===d)d.close();});
 $("#cfg-save").onclick=()=>{localStorage.op_owner=$("#cfg-owner").value.trim();localStorage.op_repo=$("#cfg-repo").value.trim();localStorage.op_token=$("#cfg-token").value.trim();$("#settings").close();toast("Saved");load();};
 // Enter sends from any single-line reply field
 document.addEventListener("keydown",e=>{
