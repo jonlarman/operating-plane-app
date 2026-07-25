@@ -14,12 +14,13 @@
     --bg:#0f1115; --surface:#181b22; --surface2:#212632; --text:#e8eaef; --muted:#98a2b3; --faint:#6b7480;
     --line:#282e3a; --accent:#5b8cff; --accent-bg:rgba(91,140,255,.16);
     --warn:#f5a524; --warn-bg:rgba(245,165,36,.13); --ask:#9a8cff; --ask-bg:rgba(154,140,255,.13);
+    --good:#3fbf7f; --good-bg:rgba(63,191,127,.14);
     --hot:#e5674d; --warm:#f5a524; --cooling:#4a9de5; --on_deck:#9a7cff; --parked:#6b7480; --dead:#4b5563; --stood_down:#8b95a3;
     --radius:12px; --tab:62px;
   }
   @media (prefers-color-scheme: light){
     :root{ --bg:#f5f6f8; --surface:#fff; --surface2:#eef1f5; --text:#1a1d23; --muted:#5b6573; --faint:#8a93a1; --line:#e4e7ec;
-      --accent-bg:rgba(91,140,255,.12); --warn-bg:rgba(245,165,36,.12); --ask-bg:rgba(139,124,255,.11); }
+      --accent-bg:rgba(91,140,255,.12); --warn-bg:rgba(245,165,36,.12); --ask-bg:rgba(139,124,255,.11); --good-bg:rgba(63,191,127,.12); }
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--text);
@@ -50,27 +51,52 @@
   .lnk svg{width:13px;height:13px}
   .rows{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);overflow:hidden}
   .grp{font-size:12px;font-weight:600;color:var(--faint);padding:11px 13px 3px}
-  .row{display:flex;gap:11px;padding:10px 13px;border-top:0.5px solid var(--line);align-items:flex-start}
+  .row{display:flex;gap:11px;padding:11px 13px;border-top:0.5px solid var(--line);align-items:flex-start}
   .grp + .row{border-top:none}
   .rows > .row:first-child{border-top:none}
+  .rb{flex:1;min-width:0}
   .cb{color:var(--muted);cursor:pointer;margin-top:1px}
   .cb svg{width:20px;height:20px}
   .cb.done{color:var(--accent)}
   .row p{margin:0;font-size:14px;line-height:1.45}
-  .row .chip,.chip{display:inline-block;font-size:11px;color:var(--faint);margin-top:3px}
+  .row .whyin{color:var(--muted)}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--faint);
+    background:var(--surface2);border-radius:999px;padding:4px 9px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip.ok{color:var(--good);background:var(--good-bg)}
+  .chip svg{width:12px;height:12px}
+  .tagbtn{display:inline-flex;align-items:center;gap:4px;font-family:inherit;font-size:11.5px;font-weight:600;
+    border:0.5px solid var(--warn);background:var(--warn-bg);color:var(--warn);border-radius:999px;padding:4px 10px;cursor:pointer}
+  .tagbtn.ghost{border-color:var(--line);background:var(--surface2);color:var(--muted);font-weight:500}
+  .tagbtn svg{width:13px;height:13px}
+  .legend{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.5;color:var(--muted);
+    background:var(--warn-bg);border-radius:10px;padding:9px 11px;margin:0 0 9px}
+  .legend svg{width:14px;height:14px;color:var(--warn);margin-top:3px}
+  .legend b{color:var(--text);font-weight:600}
   .soft .lineitem{margin:8px 0 0;font-size:13.5px;line-height:1.55;color:var(--text)}
   .eye{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 9px;padding-left:12px;border-left:2px solid var(--line)}
   .miss{display:flex;gap:11px;border-color:var(--warn-bg)}
   .miss > svg{width:18px;height:18px;color:var(--warn);margin-top:1px}
   .mt{font-size:14px;font-weight:600;line-height:1.4;margin:0}
   .ask{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:11px 13px;margin-bottom:9px}
+  .ask.answered{border-color:var(--good)}
   .ah{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ask);margin-bottom:6px}
   .ah svg{width:15px;height:15px}
   .aq{margin:0;font-size:14px;line-height:1.5}
   .reply{display:flex;gap:7px;margin-top:10px}
-  .reply input{flex:1;background:var(--surface2);border:0.5px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--text);font:inherit;font-size:14px}
-  .send{background:var(--accent);border:none;border-radius:9px;color:#fff;padding:0 12px;cursor:pointer;display:flex;align-items:center}
+  .reply[hidden]{display:none}
+  /* 16px minimum on every field: anything smaller makes iOS Safari zoom the page on focus */
+  .reply input{flex:1;min-width:0;background:var(--surface2);border:0.5px solid var(--line);border-radius:9px;
+    padding:9px 11px;color:var(--text);font-family:inherit;font-size:16px;line-height:1.35}
+  .send{background:var(--accent);border:none;border-radius:9px;color:#fff;padding:0 13px;cursor:pointer;display:flex;align-items:center}
   .send svg{width:16px;height:16px;stroke:#fff}
+  /* sent history */
+  .sent{margin-top:9px;display:flex;flex-direction:column;gap:7px}
+  .sent:empty{display:none}
+  .sentitem{background:var(--good-bg);border-left:2px solid var(--good);border-radius:0 8px 8px 0;padding:7px 10px}
+  .sentitem .sm{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--good);font-weight:600}
+  .sentitem .sm svg{width:12px;height:12px}
+  .sentitem p{margin:3px 0 0;font-size:13.5px;line-height:1.45;color:var(--text)}
   details.logwrap{margin-top:8px;color:var(--muted)}
   details.logwrap summary{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;list-style:none;color:var(--faint)}
   details.logwrap summary svg{width:16px;height:16px}
@@ -80,7 +106,10 @@
   .banner svg{width:18px;height:18px;color:var(--warn)}
   .wl{color:var(--accent)}
   a{color:var(--accent);text-decoration:none}
-  #today-comment{width:100%;min-height:70px;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:11px 12px;color:var(--text);font:inherit;resize:vertical}
+  #today-comment,#cap{width:100%;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);
+    padding:11px 12px;color:var(--text);font-family:inherit;font-size:16px;line-height:1.5;resize:vertical}
+  #today-comment{min-height:70px}
+  #cap{min-height:130px}
   .row2{display:flex;margin-top:9px}
   button.primary{background:var(--accent);border:none;border-radius:10px;color:#fff;font:inherit;font-weight:600;padding:10px 14px;cursor:pointer;flex:1}
   /* priority */
@@ -91,7 +120,16 @@
   .pcard .ps{color:var(--muted);font-size:13px;margin-top:2px;line-height:1.45}
   .pcard .pm{color:var(--faint);font-size:11px;margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
   .flag{color:var(--warn)}
-  .empty{color:var(--muted);text-align:center;padding:44px 16px}
+  .empty{color:var(--muted);text-align:center;padding:44px 16px;line-height:1.6}
+  /* sent view */
+  .daylbl{font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 7px}
+  .scard{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px}
+  .scard .sh{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--accent)}
+  .scard .sh .tm{margin-left:auto;font-weight:400;color:var(--faint)}
+  .scard .stg{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .scard .stx{font-size:14px;margin-top:5px;line-height:1.45}
+  .clearbtn{width:100%;margin:18px 0 6px;background:var(--surface2);border:0.5px solid var(--line);border-radius:10px;
+    color:var(--muted);font-family:inherit;font-size:14px;padding:11px;cursor:pointer}
   /* tabs */
   .tabs{position:fixed;left:0;right:0;bottom:0;height:calc(var(--tab) + env(safe-area-inset-bottom));
     padding-bottom:env(safe-area-inset-bottom);background:var(--surface);border-top:0.5px solid var(--line);display:flex;z-index:6}
@@ -103,7 +141,7 @@
   dialog::backdrop{background:rgba(0,0,0,.55)}
   dialog h3{margin:0 0 6px}
   dialog label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
-  dialog input{width:100%;background:var(--surface2);border:0.5px solid var(--line);border-radius:9px;padding:10px;color:var(--text);font:inherit}
+  dialog input{width:100%;background:var(--surface2);border:0.5px solid var(--line);border-radius:9px;padding:10px;color:var(--text);font-family:inherit;font-size:16px}
   .drow{display:flex;gap:8px;margin-top:14px}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tab) + 20px);background:var(--surface2);
     border:0.5px solid var(--line);border-radius:999px;padding:9px 18px;font-size:14px;opacity:0;transition:opacity .2s;z-index:9;pointer-events:none}
@@ -124,15 +162,17 @@
   <section id="view-priority" hidden></section>
   <section id="view-capture" hidden>
     <p class="orient" style="margin-bottom:12px">Drop a thought into the vault. It lands in your inbox and routes like any capture.</p>
-    <textarea id="cap" placeholder="Quick capture…" style="width:100%;min-height:130px;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:12px;color:var(--text);font:inherit"></textarea>
+    <textarea id="cap" placeholder="Quick capture…"></textarea>
     <div class="row2"><button class="primary" id="cap-send">Send to vault</button></div>
   </section>
+  <section id="view-sent" hidden></section>
 </main>
 
 <nav class="tabs">
   <button data-v="today" class="on"><svg viewBox="0 0 24 24"><path d="M8.5 7h11M8.5 12h11M8.5 17h11"/><path d="M4.5 7h.01M4.5 12h.01M4.5 17h.01"/></svg>Today</button>
   <button data-v="priority"><svg viewBox="0 0 24 24"><path d="M12 4l8 4.2-8 4.2-8-4.2z"/><path d="M4 13.5l8 4.2 8-4.2"/></svg>Priority</button>
   <button data-v="capture"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Capture</button>
+  <button data-v="sent"><svg viewBox="0 0 24 24"><path d="M4 11.5L20 4l-7.5 16-2-6.5z"/><path d="M10.5 13.5L20 4"/></svg>Sent</button>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -143,7 +183,7 @@
   <label>GitHub owner (username)</label><input id="cfg-owner" autocomplete="off" />
   <label>Repo name</label><input id="cfg-repo" value="operating-plane" autocomplete="off" />
   <label>Fine-grained token</label><input id="cfg-token" type="password" autocomplete="off" />
-  <div class="drow"><button class="primary" id="cfg-save">Save & sync</button><button id="cfg-close" style="background:var(--surface2);border:none;border-radius:10px;color:var(--text);padding:10px 14px;font:inherit;cursor:pointer">Close</button></div>
+  <div class="drow"><button class="primary" id="cfg-save">Save &amp; sync</button><button id="cfg-close" style="background:var(--surface2);border:none;border-radius:10px;color:var(--text);padding:10px 14px;font:inherit;cursor:pointer">Close</button></div>
 </dialog>
 
 <script>
@@ -153,6 +193,9 @@ const have=()=>{const c=cfg();return c.owner&&c.repo&&c.token;};
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800);};
 const b64=s=>btoa(unescape(encodeURIComponent(s)));
 const esc=s=>(s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const att=s=>esc(s).replace(/"/g,"&quot;");
+const keyOf=s=>{let h=0;const t=(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"");
+  for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return "k"+(h>>>0).toString(36);};
 
 // icons
 const P={
@@ -167,7 +210,9 @@ const P={
   square:'<rect x="4.5" y="4.5" width="15" height="15" rx="4"/>',
   checkfill:'<rect x="4.5" y="4.5" width="15" height="15" rx="4" fill="currentColor" stroke="none"/><path d="M8.5 12.2l2.4 2.4 4.6-5" stroke="#fff"/>',
   arrow:'<path d="M5 12h13"/><path d="M13 6.5l5.5 5.5-5.5 5.5"/>',
-  spark:'<path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"/>'
+  spark:'<path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"/>',
+  bolt:'<path d="M13 3L5.5 13.5H12l-1 7.5L18.5 10.5H12z"/>',
+  plane:'<path d="M4 11.5L20 4l-7.5 16-2-6.5z"/><path d="M10.5 13.5L20 4"/>'
 };
 const ic=(n,s=18)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}">${P[n]||""}</svg>`;
 
@@ -179,7 +224,30 @@ function inline(s){
   s=s.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
   return s;
 }
-const plain=s=>s.replace(/\*\*/g,"").replace(/\[\[([^\]]+)\]\]/g,(_,m)=>m.split("|").pop());
+const plain=s=>(s||"").replace(/\*\*/g,"").replace(/\[\[([^\]]+)\]\]/g,(_,m)=>m.split("|").pop());
+
+// ---- local outbox -------------------------------------------------------
+// Every intent this phone sends is recorded here so a reply never just vanishes.
+// The vault round-trip is slow (sync job -> orchestrator -> tomorrow's brief),
+// so the phone keeps its own receipt and renders it under the item it answered.
+const OB="op_sent";
+function outbox(){try{const v=JSON.parse(localStorage[OB]||"[]");return Array.isArray(v)?v:[]}catch{return[]}}
+function outboxWrite(l){const cut=Date.now()-1000*60*60*24*45;
+  localStorage[OB]=JSON.stringify(l.filter(e=>e.ts>cut).slice(-400));}
+function recordSent(e){const l=outbox();l.push({ts:Date.now(),...e});outboxWrite(l);}
+function sentFor(k){return outbox().filter(e=>e.key===k);}
+const fmtT=ts=>new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+const fmtD=ts=>new Date(ts).toLocaleDateString([],{weekday:"long",month:"short",day:"numeric"});
+const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured"};
+function sentInner(k){
+  return sentFor(k).map(e=>{
+    const old=new Date(e.ts).toDateString()!==new Date().toDateString();
+    return `<div class="sentitem"><span class="sm">${ic("check",12)} ${SENTLBL[e.type]||"Sent"} · ${
+      old?new Date(e.ts).toLocaleDateString([],{month:"short",day:"numeric"})+" ":""}${fmtT(e.ts)}</span>${
+      e.text?`<p>${esc(e.text)}</p>`:""}</div>`;}).join("");
+}
+function refreshSent(k){document.querySelectorAll(`[data-sent="${k}"]`).forEach(n=>n.innerHTML=sentInner(k));
+  if(!$("#view-sent").hidden)renderSentView();}
 
 // GitHub
 async function ghGet(p){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}?t=${Date.now()}`,
@@ -223,7 +291,10 @@ function renderToday(md){
     else if(h.includes("might have missed"))html+=sec("alert","You might have missed",missed(s.body),collectItems(s.body).length);
     else if(h.includes("stood down"))html+=sec("history","Stood down",eyeList(s.body));
     else if(h.includes("let's talk")||h.includes("lets talk"))html+=sec("chat","Let's talk",asks(s.body));
-    else if(h.includes("drop a comment"))html+=sec("pencil","Drop a comment",`<textarea id="today-comment" placeholder="Flag anything — it lands in the vault…"></textarea><div class="row2"><button class="primary" id="tc-send">Send comment</button></div>`);
+    else if(h.includes("drop a comment"))html+=sec("pencil","Drop a comment",
+      `<textarea id="today-comment" placeholder="Flag anything — it lands in the vault…"></textarea>`+
+      `<div class="row2"><button class="primary" id="tc-send">Send comment</button></div>`+
+      `<div class="sent" data-sent="__comment">${sentInner("__comment")}</div>`);
     else if(h.includes("today's log")||h.includes("todays log"))html+=`<details class="logwrap"><summary>${ic("clock",16)} Today's log</summary>${collectItems(s.body).map(i=>`<p class="logitem">${inline(i)}</p>`).join("")}</details>`;
   }
   return html||'<div class="empty">Nothing to show. Tap ↻ or ⚙.</div>';
@@ -233,32 +304,113 @@ function pills(c){const L=["hot","warm","cooling","on deck","parked","dead"];
   return `<div class="counts">${c.split("/").map((n,i)=>i<4&&n.trim()?`<span class="pill">${n.trim()} ${L[i]}</span>`:"").join("")}</div>`;}
 function tom(body){const its=collectItems(body);return its.map((it,i)=>{const{title,why,link}=splitTom(it);
   return `<div class="card tom"><span class="rank">${i+1}</span><div><p class="t">${inline(title)}</p>${why?`<p class="why">${inline(why)}</p>`:""}${link?`<span class="lnk">${ic("arrow",13)} ${esc(link)}</span>`:""}</div></div>`;}).join("");}
-function actNow(body){let html='<div class="rows">',any=false,buf="";
-  const flat=[];let cur=null;
-  for(const ln of body){if(/^\s*(?:[-*]|\d+\.)\s+/.test(ln)){if(cur!=null)flat.push(cur);cur=ln;}
+
+// --- Act now -------------------------------------------------------------
+// A brief line looks like:
+//   - **Do the thing.** why it matters → [[Project - X]] · ⚡ not in Todoist
+//   - **Do the thing.** why it matters → [[Project - X]] · ✓ in Todoist
+// Everything after a "·" is a machine tag. Strip the tags out of the prose and
+// turn them into controls, so the item explains itself and is actionable here.
+function parseAct(raw){
+  let txt=raw.trim(),done=false;
+  const cbm=txt.match(/^\[( |x)\]\s+/i);
+  if(cbm){done=cbm[1].toLowerCase()==="x";txt=txt.slice(cbm[0].length);}
+  let inTodoist=false,notPhone=false,topic="",link="";
+  const parts=txt.split(/\s+·\s+/);
+  let main=parts.shift()||"";
+  for(const p of parts){
+    if(/not\s+(?:on your phone|in\s*todoist|projected)/i.test(p))notPhone=true;
+    else if(/in\s*todoist/i.test(p))inTodoist=true;
+    else if(/^_?topic:/i.test(p))topic=plain(p.replace(/^_?topic:\s*/i,"").replace(/_\s*$/,""));
+    else if(p.trim()&&!topic)topic=plain(p.trim());
+  }
+  const lm=main.match(/\s*(?:→|->)\s*\[\[([^\]]+)\]\]\s*$/);
+  if(lm){link=lm[1].split("|").pop();main=main.slice(0,lm.index);}
+  const b=main.match(/\*\*(.+?)\*\*/);
+  const title=(b?b[1]:main).trim();
+  // keep a leading em dash: "**Title** — why" reads wrong without it
+  const why=(b?main.slice(b.index+b[0].length):"").replace(/^[\s:]+/,"").trim();
+  const pl=plain(title).replace(/\s+/g," ").trim();
+  return{done,inTodoist,notPhone,topic,link,title,why,plain:pl,k:keyOf(pl)};
+}
+function pushCtl(it){
+  return sentFor(it.k).some(e=>e.type==="phone_this")
+    ? `<span class="chip ok">${ic("check",12)} Queued for Todoist</span>`
+    : `<button class="tagbtn" data-push="${att(it.plain)}" data-key="${it.k}">${ic("bolt",13)} Add to Todoist</button>`;
+}
+function actRow(it){
+  return `<div class="row" data-key="${it.k}">
+    <span class="cb ${it.done?"done":""}" data-done="${att(it.plain)}" data-key="${it.k}">${ic(it.done?"checkfill":"square",20)}</span>
+    <div class="rb">
+      <p><strong>${inline(it.title)}</strong>${it.why?` <span class="whyin">${inline(it.why)}</span>`:""}</p>
+      <div class="meta">
+        ${it.link?`<span class="chip">${ic("arrow",12)} ${esc(it.link)}</span>`:""}
+        ${it.topic?`<span class="chip">${esc(it.topic)}</span>`:""}
+        ${it.inTodoist?`<span class="chip ok">${ic("check",12)} In Todoist</span>`:""}
+        ${it.notPhone?pushCtl(it):""}
+        <button class="tagbtn ghost" data-note="${it.k}">${ic("pencil",13)} Reply</button>
+      </div>
+      <div class="sent" data-sent="${it.k}">${sentInner(it.k)}</div>
+      <div class="reply" data-nf="${it.k}" hidden>
+        <input placeholder="Add a note…" data-target="${att(it.plain)}" data-key="${it.k}" />
+        <button class="send" data-send-note>${ic("arrow",16)}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function actNow(body){
+  const flat=[],intro=[];let cur=null;
+  for(const ln of body){
+    if(/^\s*(?:[-*]|\d+\.)\s+/.test(ln)){if(cur!=null)flat.push(cur);cur=ln;}
     else if(/^\*\*.+\*\*:?\s*$/.test(ln.trim())){if(cur!=null){flat.push(cur);cur=null;}flat.push(ln.trim());}
-    else if(cur!=null&&ln.trim())cur+=" "+ln.trim();}
+    else if(cur!=null&&ln.trim())cur+=" "+ln.trim();
+    else if(cur==null&&ln.trim())intro.push(ln.trim());
+  }
   if(cur!=null)flat.push(cur);
-  for(const raw of flat){const g=raw.match(/^\*\*(.+?)\*\*:?\s*$/);
-    if(g){html+=`<div class="grp">${esc(g[1].replace(/:$/,""))}</div>`;continue;}
-    const it=raw.match(/^\s*[-*]\s+\[( |x)\]\s+(.*)/i)||raw.match(/^\s*[-*]\s+(.*)/);
-    if(it){any=true;const done=it.length>2&&(it[1]||"").toLowerCase()==="x";const txt=it[2]!==undefined?it[2]:it[1];
-      const tm=txt.match(/—?\s*_topic:\s*(.+?)_\s*$/);let topic=tm?tm[1]:"";let mainv=tm?txt.slice(0,tm.index):txt;
-      mainv=mainv.replace(/\s*—\s*$/,"").trim();topic=plain(topic).replace(/→/g,"→").trim();
-      html+=`<div class="row"><span class="cb ${done?"done":""}" data-done="${esc(plain(txt).slice(0,140))}">${ic(done?"checkfill":"square",20)}</span><div><p>${inline(plain(mainv))}</p>${topic?`<span class="chip">${esc(topic)}</span>`:""}</div></div>`;}}
-  html+="</div>";return any?html:eyeList(body);}
+  let rows="",any=false,legend=false;
+  for(const raw of flat){
+    const g=raw.match(/^\*\*(.+?)\*\*:?\s*$/);
+    if(g){rows+=`<div class="grp">${esc(g[1].replace(/:$/,""))}</div>`;continue;}
+    const m=raw.match(/^\s*(?:[-*]|\d+\.)\s+(.*)/);if(!m)continue;
+    const it=parseAct(m[1]);if(!it.plain)continue;
+    any=true;if(it.notPhone)legend=true;
+    rows+=actRow(it);
+  }
+  if(!any)return eyeList(body);
+  return (intro.length?`<p class="why" style="margin:-2px 0 10px">${inline(intro.join(" "))}</p>`:"")
+   +(legend?`<div class="legend">${ic("bolt",14)}<span><b>Add to Todoist</b> — the item is on the vault's list but was never pushed to your phone, so it will not show up in Todoist and nothing will remind you. Tap it and the next sync puts it there.</span></div>`:"")
+   +`<div class="rows">${rows}</div>`;
+}
+
 function softCard(body){const its=collectItems(body);const intro=body.find(l=>l.trim()&&!/^\s*[-*]/.test(l));
   return `<div class="card soft">${intro?`<p class="why" style="margin-top:0">${inline(intro)}</p>`:""}${its.map(i=>`<p class="lineitem">${inline(i)}</p>`).join("")}</div>`;}
 function eyeList(body){const its=collectItems(body);return (its.length?its:[body.join(" ").trim()]).filter(Boolean).map(i=>`<p class="eye">${inline(i)}</p>`).join("");}
 function missed(body){return collectItems(body).map(it=>{const p=it.split(/\s+—\s+/);const title=p.shift();
   let why=p.join(" — ").replace(/\s*(?:→|->)\s*\[\[[^\]]+\]\]\s*$/,"").replace(/\[\[([^\]]+)\]\]/g,(_,m)=>m.split("|").pop());
   return `<div class="card miss">${ic("alert",18)}<div><p class="mt">${inline(title)}</p>${why.trim()?`<p class="why">${inline(why)}</p>`:""}</div></div>`;}).join("");}
+
 function asks(body){let html="",i=0;const L=body;
-  while(i<L.length){if(/^>\s*\[!ask\]/i.test(L[i])){const head=L[i].replace(/^>\s*\[!ask\]\s*/i,"");i++;const q=[];
-    while(i<L.length&&/^>/.test(L[i])){const inn=L[i].replace(/^>\s?/,"").replace(/^>\s?/,"");if(inn.trim()&&!/^reply:/i.test(inn))q.push(inn);i++;}
-    if(i<L.length&&/^\^ask-/.test(L[i].trim()))i++;
-    html+=`<div class="ask"><div class="ah">${ic("spark",15)} ${esc(head)}</div><p class="aq">${inline(q.join(" "))}</p><div class="reply"><input placeholder="yes / no / a note…" data-ask="${esc(plain(head).slice(0,120))}"><button class="send" data-send-ask>${ic("arrow",16)}</button></div></div>`;}
-    else i++;}
+  while(i<L.length){
+    if(/^>\s*\[!ask\]/i.test(L[i])){
+      const head=L[i].replace(/^>\s*\[!ask\]\s*/i,"");i++;const q=[];
+      while(i<L.length&&/^>/.test(L[i])){const inn=L[i].replace(/^>\s?/,"").replace(/^>\s?/,"");
+        if(inn.trim()&&!/^reply:/i.test(inn))q.push(inn);i++;}
+      let anchor="";
+      if(i<L.length&&/^\^ask-/.test(L[i].trim())){anchor=L[i].trim().slice(1);i++;}
+      // Stable key: prefer the ^ask- block id so a carried-over question keeps its reply history.
+      const k=anchor?keyOf(anchor):keyOf(plain(head)+plain(q.join(" ")).slice(0,80));
+      const answered=sentFor(k).length>0;
+      html+=`<div class="ask ${answered?"answered":""}" data-key="${k}">
+        <div class="ah">${ic("spark",15)} ${esc(head)}</div>
+        <p class="aq">${inline(q.join(" "))}</p>
+        <div class="sent" data-sent="${k}">${sentInner(k)}</div>
+        <div class="reply">
+          <input placeholder="${answered?"Add another…":"yes / no / a note…"}" data-ask="${att(plain(head).slice(0,120))}" data-key="${k}" />
+          <button class="send" data-send-ask>${ic("arrow",16)}</button>
+        </div>
+      </div>`;
+    } else i++;
+  }
   return html;}
 
 // Priority
@@ -272,10 +424,27 @@ function renderPriority(reg){
       (t.status?`<div class="ps">${esc(t.status)}</div>`:"")+`<div class="pm">${t.last_signal?`<span>sig ${t.last_signal}${t.days_since_signal!=null?` (${t.days_since_signal}d)`:""}</span>`:""}${t.next_trigger?`<span>next: ${esc(t.next_trigger)}</span>`:""}</div></div>`;}
   $("#view-priority").innerHTML=html||'<div class="empty">Empty board.</div>';}
 
+// Sent
+function renderSentView(){
+  const l=outbox().slice().sort((a,b)=>b.ts-a.ts);
+  if(!l.length){$("#view-sent").innerHTML='<div class="empty">Nothing sent yet.<br><span style="font-size:13px">Replies, notes, pushes and captures land here so you can see what you already said.</span></div>';return;}
+  let html='<p class="orient" style="margin:0">Everything this phone has sent to the vault. Kept on this device for 45 days.</p>',day="";
+  for(const e of l){
+    const d=fmtD(e.ts);
+    if(d!==day){day=d;html+=`<div class="daylbl">${esc(d)}</div>`;}
+    html+=`<div class="scard"><div class="sh">${ic("plane",12)} ${SENTLBL[e.type]||esc(e.type)}<span class="tm">${fmtT(e.ts)}</span></div>`
+      +(e.label?`<div class="stg">${esc(e.label)}</div>`:"")
+      +(e.text?`<div class="stx">${esc(e.text)}</div>`:"")+`</div>`;
+  }
+  html+=`<button class="clearbtn" id="sent-clear">Clear sent history on this phone</button>`;
+  $("#view-sent").innerHTML=html;
+}
+
 async function load(){
   const cN=localStorage.op_today,cR=localStorage.op_reg;
   if(cN)$("#view-today").innerHTML=renderToday(cN);
   if(cR)renderPriority(JSON.parse(cR));
+  renderSentView();
   if(!have()){$("#view-today").innerHTML='<div class="empty">Tap ⚙ to connect your repo.</div>';return;}
   try{const[note,reg]=await Promise.all([ghGet("today.md").catch(()=>cN||""),ghGet("priority-register.json").catch(()=>cR||"")]);
     if(note){localStorage.op_today=note;$("#view-today").innerHTML=renderToday(note);}
@@ -287,20 +456,75 @@ async function load(){
 document.addEventListener("click",async e=>{
   const tab=e.target.closest(".tabs button");
   if(tab){const v=tab.dataset.v;document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("on",b===tab));
-    $("#htitle").textContent=v==="today"?"Today":v==="priority"?"Priority":"Capture";
-    $("#view-today").hidden=v!=="today";$("#view-priority").hidden=v!=="priority";$("#view-capture").hidden=v!=="capture";return;}
+    $("#htitle").textContent={today:"Today",priority:"Priority",capture:"Capture",sent:"Sent"}[v];
+    $("#view-today").hidden=v!=="today";$("#view-priority").hidden=v!=="priority";
+    $("#view-capture").hidden=v!=="capture";$("#view-sent").hidden=v!=="sent";
+    if(v==="sent")renderSentView();
+    window.scrollTo(0,0);return;}
+
   const cb=e.target.closest(".cb");
-  if(cb&&!cb.classList.contains("done")){try{await sendIntent({type:"complete",target:cb.dataset.done});cb.classList.add("done");cb.innerHTML=ic("checkfill",20);toast("Marked done");}catch{toast("Failed");}return;}
-  if(e.target.closest("[data-send-ask]")){const btn=e.target.closest("[data-send-ask]");const inp=btn.previousElementSibling;if(!inp.value.trim())return;
-    try{await sendIntent({type:"reply",target:inp.dataset.ask,text:inp.value.trim()});inp.value="";toast("Reply sent");}catch{toast("Failed");}return;}
-  if(e.target.id==="tc-send"){const ta=$("#today-comment");if(!ta.value.trim())return;
-    try{await sendIntent({type:"comment",text:ta.value.trim()});ta.value="";toast("Comment sent");}catch{toast("Failed");}return;}
+  if(cb&&!cb.classList.contains("done")){
+    try{await sendIntent({type:"complete",target:cb.dataset.done});
+      cb.classList.add("done");cb.innerHTML=ic("checkfill",20);
+      recordSent({key:cb.dataset.key,type:"complete",label:cb.dataset.done,text:""});
+      refreshSent(cb.dataset.key);toast("Marked done");}catch{toast("Failed");}
+    return;}
+
+  const push=e.target.closest("[data-push]");
+  if(push){const t=push.dataset.push,k=push.dataset.key;push.disabled=true;
+    try{await sendIntent({type:"phone_this",target:t});
+      recordSent({key:k,type:"phone_this",label:t,text:""});
+      push.outerHTML=`<span class="chip ok">${ic("check",12)} Queued for Todoist</span>`;
+      refreshSent(k);toast("Pushing to Todoist on next sync");}
+    catch{push.disabled=false;toast("Failed");}
+    return;}
+
+  const nb=e.target.closest("[data-note]");
+  if(nb){const box=document.querySelector(`[data-nf="${nb.dataset.note}"]`);
+    if(box){box.hidden=!box.hidden;if(!box.hidden)box.querySelector("input").focus();}
+    return;}
+
+  const sn=e.target.closest("[data-send-note]");
+  if(sn){const inp=sn.previousElementSibling;const v=inp.value.trim();if(!v)return;
+    const k=inp.dataset.key;
+    try{await sendIntent({type:"comment",target:inp.dataset.target,text:v});
+      recordSent({key:k,type:"comment",label:inp.dataset.target,text:v});
+      inp.value="";inp.blur();sn.closest(".reply").hidden=true;
+      refreshSent(k);toast("Note sent");}catch{toast("Failed");}
+    return;}
+
+  const sa=e.target.closest("[data-send-ask]");
+  if(sa){const inp=sa.previousElementSibling;const v=inp.value.trim();if(!v)return;
+    const k=inp.dataset.key;
+    try{await sendIntent({type:"reply",target:inp.dataset.ask,text:v});
+      recordSent({key:k,type:"reply",label:inp.dataset.ask,text:v});
+      inp.value="";inp.blur();inp.placeholder="Add another…";
+      const card=sa.closest(".ask");if(card)card.classList.add("answered");
+      refreshSent(k);toast("Reply sent");}catch{toast("Failed");}
+    return;}
+
+  if(e.target.id==="tc-send"){const ta=$("#today-comment");const v=ta.value.trim();if(!v)return;
+    try{await sendIntent({type:"comment",text:v});
+      recordSent({key:"__comment",type:"comment",label:"Today's note",text:v});
+      ta.value="";ta.blur();refreshSent("__comment");toast("Comment sent");}catch{toast("Failed");}
+    return;}
+
+  if(e.target.id==="sent-clear"){localStorage.removeItem(OB);renderSentView();
+    document.querySelectorAll("[data-sent]").forEach(n=>n.innerHTML="");toast("History cleared");return;}
 });
-$("#cap-send").onclick=async()=>{const v=$("#cap").value.trim();if(!v)return;try{await sendIntent({type:"capture",text:v});$("#cap").value="";toast("Captured");}catch{toast("Failed");}};
+
+$("#cap-send").onclick=async()=>{const v=$("#cap").value.trim();if(!v)return;
+  try{await sendIntent({type:"capture",text:v});
+    recordSent({key:"__capture",type:"capture",label:"",text:v});
+    $("#cap").value="";$("#cap").blur();toast("Captured");}catch{toast("Failed");}};
 $("#reload").onclick=load;
 function openSettings(){const c=cfg();$("#cfg-owner").value=c.owner;$("#cfg-repo").value=c.repo;$("#cfg-token").value=c.token;$("#settings").showModal();}
 $("#gear").onclick=openSettings;$("#cfg-close").onclick=()=>$("#settings").close();
 $("#cfg-save").onclick=()=>{localStorage.op_owner=$("#cfg-owner").value.trim();localStorage.op_repo=$("#cfg-repo").value.trim();localStorage.op_token=$("#cfg-token").value.trim();$("#settings").close();toast("Saved");load();};
+// Enter sends from any single-line reply field
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Enter")return;const i=e.target.closest(".reply input");if(!i)return;
+  e.preventDefault();i.nextElementSibling.click();});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 load();
 </script>
