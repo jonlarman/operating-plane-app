@@ -161,6 +161,38 @@
   .morebtn{margin-top:6px;background:none;border:none;color:var(--accent);
     font-family:inherit;font-size:13px;font-weight:600;padding:0;cursor:pointer}
   .empty{color:var(--muted);text-align:center;padding:44px 16px;line-height:1.6}
+  /* review queue */
+  .rvhead{display:flex;align-items:baseline;gap:8px;margin:0 0 12px}
+  .rvhead b{font-size:20px;font-weight:600}
+  .rvhead span{font-size:13px;color:var(--muted)}
+  .rvcard{display:block;width:100%;text-align:left;background:var(--surface);border:0.5px solid var(--line);
+    border-radius:var(--radius);padding:12px 13px;margin-bottom:9px;color:var(--text);font-family:inherit;cursor:pointer}
+  .rvcard:active{background:var(--surface2)}
+  .rvcard.done{opacity:.55;border-color:var(--good)}
+  .rvtop{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .rvage{margin-left:auto;font-size:11px;color:var(--faint);flex:none}
+  .rvage.old{color:var(--warn)}
+  .rvt{display:block;font-size:14.5px;font-weight:600;line-height:1.35}
+  .rvq{display:block;font-size:13px;color:var(--muted);line-height:1.5;margin-top:5px;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  /* rendered markdown inside the review sheet */
+  .md{font-size:14px;line-height:1.55}
+  .md .mdh{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--faint);margin:16px 0 5px}
+  .md .mdh:first-child{margin-top:0}
+  .md .mdp{margin:0 0 9px}
+  .md .mdul{margin:0 0 9px;padding-left:19px}
+  .md .mdul li{margin:0 0 5px}
+  .md .mdq{border-left:2px solid var(--line);padding-left:11px;color:var(--muted);margin:0 0 9px}
+  .md .mdtask{margin:0 0 7px;color:var(--muted)}
+  .md code{background:var(--surface2);border-radius:4px;padding:1px 5px;font-size:12.5px}
+  .md s{color:var(--faint)}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 9px}
+  .preset{font-family:inherit;font-size:12px;background:var(--surface2);border:0.5px solid var(--line);
+    border-radius:999px;color:var(--muted);padding:6px 11px;cursor:pointer}
+  #rv-answer{width:100%;min-height:90px;background:var(--surface2);border:0.5px solid var(--line);
+    border-radius:10px;padding:11px;color:var(--text);font-family:inherit;font-size:16px;line-height:1.5;resize:vertical}
+  .rvfoot{font-size:11.5px;color:var(--faint);line-height:1.5;margin:9px 0 0}
   /* sent view */
   .daylbl{font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 7px}
   .scard{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px}
@@ -208,17 +240,31 @@
     <div class="sec" style="margin-top:26px"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18.5V21"/></svg><span>Voice note</span></div>
     <div id="rec"></div>
   </section>
+  <section id="view-review" hidden></section>
   <section id="view-sent" hidden></section>
 </main>
 
 <nav class="tabs">
   <button data-v="today" class="on"><svg viewBox="0 0 24 24"><path d="M8.5 7h11M8.5 12h11M8.5 17h11"/><path d="M4.5 7h.01M4.5 12h.01M4.5 17h.01"/></svg>Today</button>
   <button data-v="priority"><svg viewBox="0 0 24 24"><path d="M12 4l8 4.2-8 4.2-8-4.2z"/><path d="M4 13.5l8 4.2 8-4.2"/></svg>Priority</button>
+  <button data-v="review"><svg viewBox="0 0 24 24"><path d="M4 13.5h4l1.5 2.5h5l1.5-2.5h4"/><path d="M4 13.5V19a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-5.5"/><path d="M6.6 5h10.8L20 13.5H4z"/></svg>Review</button>
   <button data-v="capture"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Capture</button>
   <button data-v="sent"><svg viewBox="0 0 24 24"><path d="M4 11.5L20 4l-7.5 16-2-6.5z"/><path d="M10.5 13.5L20 4"/></svg>Sent</button>
 </nav>
 
 <div class="toast" id="toast"></div>
+
+<dialog id="review">
+  <h3 id="rv-title"></h3>
+  <div id="rv-meta" class="rechint" style="margin:2px 0 12px"></div>
+  <div id="rv-body" class="md"></div>
+  <div class="dl" style="margin-top:16px"><span class="dk">Your decision</span></div>
+  <div class="presets" id="rv-presets"></div>
+  <textarea id="rv-answer" placeholder="What should happen with this?"></textarea>
+  <p class="rvfoot" id="rv-foot"></p>
+  <div class="drow"><button class="primary" id="rv-resolve">Resolve</button>
+    <button id="rv-close" style="background:var(--surface2);border:none;border-radius:10px;color:var(--text);padding:10px 14px;font:inherit;cursor:pointer">Later</button></div>
+</dialog>
 
 <dialog id="topic">
   <h3 id="tp-title"></h3>
@@ -274,6 +320,9 @@ function inline(s){
   s=s.replace(/\[\[([^\]]+)\]\]/g,(_,m)=>`<span class="wl">${m.split("|").pop()}</span>`);
   s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
   s=s.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+  s=s.replace(/`([^`]+)`/g,"<code>$1</code>");
+  s=s.replace(/~~([^~]+)~~/g,"<s>$1</s>");
+  s=s.replace(/(^|[\s(])\*([^*\n]+)\*/g,"$1<em>$2</em>");
   return s;
 }
 const plain=s=>(s||"").replace(/\*\*/g,"").replace(/\[\[([^\]]+)\]\]/g,(_,m)=>m.split("|").pop());
@@ -290,7 +339,7 @@ function recordSent(e){const l=outbox();l.push({ts:Date.now(),...e});outboxWrite
 function sentFor(k){return outbox().filter(e=>e.key===k);}
 const fmtT=ts=>new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
 const fmtD=ts=>new Date(ts).toLocaleDateString([],{weekday:"long",month:"short",day:"numeric"});
-const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured",voice:"Voice note"};
+const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured",voice:"Voice note",review:"Review resolved"};
 function sentInner(k){
   return sentFor(k).map(e=>{
     const old=new Date(e.ts).toDateString()!==new Date().toDateString();
@@ -522,6 +571,84 @@ function openTopic(i){
   $("#topic").scrollTop=0;
 }
 
+// ---- Review queue -------------------------------------------------------
+// The vault stays the source of truth. Resolving here appends a `## Resolution` section to the
+// note, which is one of the orchestrator's three resolution signals — identical to typing it in
+// Obsidian. Nothing here is a parallel state store, and answering in either place works.
+let RVQ=null;
+const RV_PRESETS=[
+  "No action needed — close this out.",
+  "Yes — create the person note.",
+  "Stakeholder Map only, no card.",
+  "Not now — ask me again in a month.",
+];
+function mdBlock(src){
+  const out=[];let list=null;
+  const flush=()=>{if(list!=null){out.push(`<ul class="mdul">${list}</ul>`);list=null;}};
+  for(const raw of String(src||"").split("\n")){
+    const t=raw.trim();
+    if(!t){flush();continue;}
+    let m;
+    if(m=t.match(/^(#{1,4})\s+(.*)/)){flush();out.push(`<p class="mdh">${inline(m[2])}</p>`);continue;}
+    if(m=t.match(/^>\s?\[!(\w+)\]\s*(.*)/)){flush();out.push(`<div class="mdq"><strong>${esc(m[1])}</strong> ${inline(m[2])}</div>`);continue;}
+    if(m=t.match(/^>\s?(.*)/)){flush();out.push(`<div class="mdq">${inline(m[1])}</div>`);continue;}
+    if(m=t.match(/^[-*]\s+\[( |x)\]\s+(.*)/i)){flush();
+      out.push(`<p class="mdtask">${m[1].toLowerCase()==="x"?"☑":"☐"} ${inline(m[2])}</p>`);continue;}
+    if(m=t.match(/^[-*]\s+(.*)/)){list=(list||"")+`<li>${inline(m[1])}</li>`;continue;}
+    flush();out.push(`<p class="mdp">${inline(t)}</p>`);
+  }
+  flush();return out.join("");
+}
+const rvKey=file=>keyOf("rv:"+file);
+const rvDone=file=>sentFor(rvKey(file)).some(e=>e.type==="review");
+function renderReview(){
+  const el=$("#view-review");
+  if(!RVQ||!RVQ.items){el.innerHTML='<div class="empty">No review queue yet.<br><span style="font-size:13px">It appears after the next sync.</span></div>';return;}
+  const open=RVQ.items.filter(i=>!rvDone(i.file));
+  const done=RVQ.items.filter(i=>rvDone(i.file));
+  if(!RVQ.items.length){el.innerHTML='<div class="empty">Review queue is clear.</div>';return;}
+  const card=i=>{
+    const d=rvDone(i.file);
+    const age=i.days!=null?`${i.days}d`:"";
+    return `<button class="rvcard${d?" done":""}" data-rv="${att(i.file)}">
+      <span class="rvtop"><span class="chip">${esc(i.kind)}</span>${
+        d?`<span class="chip ok">${ic("check",12)} Resolved</span>`:""}
+        <span class="rvage${i.days>=30?" old":""}">${esc(age)}</span></span>
+      <span class="rvt">${esc(i.title)}</span>
+      ${i.question?`<span class="rvq">${inline(i.question)}</span>`:""}
+    </button>`;};
+  let html=`<div class="rvhead"><b>${open.length} to review</b><span>${
+    open.length?`oldest ${Math.max(...open.map(i=>i.days||0))} days`:"all clear"}</span></div>`;
+  html+=open.map(card).join("");
+  if(done.length)html+=`<div class="sec" style="margin-top:22px">${ic("check")}<span>Resolved, awaiting sweep</span><span class="n">${done.length}</span></div>`+done.map(card).join("");
+  el.innerHTML=html;
+}
+function openReview(file){
+  const it=RVQ&&RVQ.items.find(i=>i.file===file);if(!it)return;
+  $("#rv-title").textContent=it.title;
+  $("#rv-meta").innerHTML=`${esc(it.kind)}${it.date?` · ${esc(it.date)}`:""}${
+    it.days!=null?` · ${it.days} days old`:""}${it.source?` · via ${esc(it.source)}`:""}`;
+  $("#rv-body").innerHTML=mdBlock(it.body);
+  const prior=sentFor(rvKey(it.file)).filter(e=>e.type==="review");
+  $("#rv-presets").innerHTML=RV_PRESETS.map(t=>`<button class="preset" data-preset="${att(t)}">${esc(t)}</button>`).join("");
+  const a=$("#rv-answer");a.value="";a.dataset.file=it.file;a.dataset.title=it.title;
+  $("#rv-foot").innerHTML=prior.length
+    ? `Already resolved from this phone: “${esc(prior[prior.length-1].text)}”. Sending again appends a note instead.`
+    : `Writes a <code>## Resolution</code> section into <code>${esc(it.file)}</code>. The Librarian actions it and archives the note on the next run — the same as answering in Obsidian.`;
+  $("#review").showModal();$("#review").scrollTop=0;
+}
+async function resolveReview(){
+  const a=$("#rv-answer");const v=a.value.trim();if(!v){toast("Write a decision first");return;}
+  const file=a.dataset.file,k=rvKey(file);
+  const btn=$("#rv-resolve");btn.disabled=true;
+  try{
+    await sendIntent({type:"review_resolve",target:file,text:v});
+    recordSent({key:k,type:"review",label:a.dataset.title,text:v});
+    $("#review").close();renderReview();toast("Resolved");
+  }catch(e){toast(e.message==="nocfg"?"Connect your repo first":"Failed");}
+  finally{btn.disabled=false;}
+}
+
 // Sent
 function renderSentView(){
   const l=outbox().slice().sort((a,b)=>b.ts-a.ts);
@@ -539,14 +666,19 @@ function renderSentView(){
 }
 
 async function load(){
-  const cN=localStorage.op_today,cR=localStorage.op_reg;
+  const cN=localStorage.op_today,cR=localStorage.op_reg,cV=localStorage.op_review;
   if(cN)$("#view-today").innerHTML=renderToday(cN);
   if(cR)renderPriority(JSON.parse(cR));
-  renderSentView();renderRec();
+  if(cV){try{RVQ=JSON.parse(cV);}catch{}}
+  renderReview();renderSentView();renderRec();
   if(!have()){$("#view-today").innerHTML='<div class="empty">Tap ⚙ to connect your repo.</div>';return;}
-  try{const[note,reg]=await Promise.all([ghGet("today.md").catch(()=>cN||""),ghGet("priority-register.json").catch(()=>cR||"")]);
+  try{const[note,reg,rev]=await Promise.all([
+      ghGet("today.md").catch(()=>cN||""),
+      ghGet("priority-register.json").catch(()=>cR||""),
+      ghGet("review-queue.json").catch(()=>cV||"")]);
     if(note){localStorage.op_today=note;$("#view-today").innerHTML=renderToday(note);}
-    if(reg){localStorage.op_reg=reg;renderPriority(JSON.parse(reg));}}
+    if(reg){localStorage.op_reg=reg;renderPriority(JSON.parse(reg));}
+    if(rev){localStorage.op_review=rev;try{RVQ=JSON.parse(rev);renderReview();}catch{}}}
   catch(e){toast("Sync failed — showing cached");}
 }
 
@@ -554,11 +686,20 @@ async function load(){
 document.addEventListener("click",async e=>{
   const tab=e.target.closest(".tabs button");
   if(tab){const v=tab.dataset.v;document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("on",b===tab));
-    $("#htitle").textContent={today:"Today",priority:"Priority",capture:"Capture",sent:"Sent"}[v];
+    $("#htitle").textContent={today:"Today",priority:"Priority",review:"Review",capture:"Capture",sent:"Sent"}[v];
     $("#view-today").hidden=v!=="today";$("#view-priority").hidden=v!=="priority";
+    $("#view-review").hidden=v!=="review";
     $("#view-capture").hidden=v!=="capture";$("#view-sent").hidden=v!=="sent";
     if(v==="sent")renderSentView();
+    if(v==="review")renderReview();
     window.scrollTo(0,0);return;}
+
+  const rv=e.target.closest("[data-rv]");
+  if(rv){openReview(rv.dataset.rv);return;}
+  const pz=e.target.closest("[data-preset]");
+  if(pz){const a=$("#rv-answer");a.value=a.value.trim()?a.value.trim()+" "+pz.dataset.preset:pz.dataset.preset;a.focus();return;}
+  if(e.target.id==="rv-resolve"){resolveReview();return;}
+  if(e.target.id==="rv-close"){$("#review").close();return;}
 
   const pr=e.target.closest("[data-topic]");
   if(pr){openTopic(+pr.dataset.topic);return;}
@@ -719,7 +860,7 @@ function openSettings(){const c=cfg();$("#cfg-owner").value=c.owner;$("#cfg-repo
 $("#gear").onclick=openSettings;$("#cfg-close").onclick=()=>$("#settings").close();
 $("#tp-close").onclick=()=>$("#topic").close();
 // tap the backdrop to dismiss either sheet
-for(const d of [$("#topic"),$("#settings")])d.addEventListener("click",e=>{if(e.target===d)d.close();});
+for(const d of [$("#topic"),$("#settings"),$("#review")])d.addEventListener("click",e=>{if(e.target===d)d.close();});
 $("#cfg-save").onclick=()=>{localStorage.op_owner=$("#cfg-owner").value.trim();localStorage.op_repo=$("#cfg-repo").value.trim();localStorage.op_token=$("#cfg-token").value.trim();$("#settings").close();toast("Saved");load();};
 // Enter sends from any single-line reply field
 document.addEventListener("keydown",e=>{
