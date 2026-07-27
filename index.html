@@ -226,6 +226,51 @@
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tab) + 20px);background:var(--surface2);
     border:0.5px solid var(--line);border-radius:999px;padding:9px 18px;font-size:14px;opacity:0;transition:opacity .2s;z-index:9;pointer-events:none}
   .toast.show{opacity:1}
+  /* a receipt that came from the OTHER device (or from the applied history), not this one */
+  .sentitem.remote{background:var(--accent-bg);border-left-color:var(--accent)}
+  .sentitem.remote .sm{color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+  /* ---- wide screens -------------------------------------------------------
+     Same app, same single column. The bottom thumb bar becomes a left rail and the
+     column gets a little wider — that is the whole desktop story on purpose. The old
+     Executive Dashboard failed because it put everything on one screen at once; a
+     multi-column desktop build of this would rebuild exactly that problem. Density is
+     the bug, not the goal. Breakpoint is 900px so iPad portrait (834) keeps the touch
+     tab bar and only landscape/desktop gets the rail. */
+  @media (min-width:900px){
+    /* main is a centered 760px column in the space left of the rail, so the header needs the
+       same offset or the title and the sync pill float off the column's edges.
+       (100vw - rail - column) / 2 is exactly where main's left edge lands. */
+    /* box-sizing is border-box, so main's 760px box carries its own 26px padding: the header
+       has to clear the centering offset PLUS that padding to line up with the actual text. */
+    :root{--rail:212px; --col:760px;
+      --gut:max(26px, calc((100vw - var(--rail) - var(--col)) / 2 + 26px))}
+    body{padding-bottom:0;padding-left:var(--rail)}
+    header{padding:15px var(--gut) 13px}
+    header h1{font-size:19px}
+    .tabs{top:0;bottom:0;right:auto;width:var(--rail);height:100vh;height:100dvh;
+      flex-direction:column;align-items:stretch;gap:2px;padding:14px 10px;
+      border-top:none;border-right:0.5px solid var(--line);background:var(--bg)}
+    .tabs::before{content:"Operating Plane";display:block;font-size:11px;font-weight:700;
+      letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:8px 12px 16px}
+    .tabs button{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:11px;
+      font-size:14px;font-weight:500;padding:9px 12px;border-radius:9px}
+    .tabs button svg{width:19px;height:19px}
+    .tabs button.on{background:var(--accent-bg)}
+    main{max-width:var(--col);padding:20px 26px 64px}
+    .toast{left:calc(50% + (var(--rail) / 2));bottom:26px}
+    dialog{width:min(88vw,560px);max-height:86vh}
+    #review{width:min(88vw,680px)}
+    #cap{min-height:170px}
+  }
+  @media (hover:hover){
+    .prow:hover,.rvcard:hover{background:var(--surface2)}
+    .tabs button:hover{color:var(--text)}
+    header button:hover,.cb:hover{color:var(--text)}
+    .tagbtn:hover,.preset:hover,.ghostbtn:hover,.clearbtn:hover{filter:brightness(1.18)}
+    button.primary:hover,.send:hover{filter:brightness(1.08)}
+  }
 </style>
 </head>
 <body>
@@ -350,15 +395,59 @@ function outbox(){try{const v=JSON.parse(localStorage[OB]||"[]");return Array.is
 function outboxWrite(l){const cut=Date.now()-1000*60*60*24*45;
   localStorage[OB]=JSON.stringify(l.filter(e=>e.ts>cut).slice(-400));}
 function recordSent(e){const l=outbox();l.push({ts:Date.now(),...e});outboxWrite(l);}
-function sentFor(k){return outbox().filter(e=>e.key===k);}
+
+// ---- shared receipts (cross-device) -------------------------------------
+// The local outbox above is THIS device's receipt, and on its own it is not enough.
+// A phone reply is appended to the daily note under "## Phone inbox", which sits below
+// the "# Reference" divider — and pushReadState() cuts the note at that divider. So a
+// reply sent from the phone never comes back down in today.md, on any device, ever.
+// Without the two feeds below the Mac cannot know the phone already answered a card,
+// and the same [!ask] gets answered twice (replies have no idempotency guard the way
+// review_resolve does). Two sources, merged into the same lookup every renderer uses:
+//   receipts.json — written by sync-job.mjs from processed/: every intent it has APPLIED.
+//   inbox/*.json  — intents sent but not yet applied. Small; the job drains it every ~12min.
+//                   This is the feed that closes the double-answer window.
+// Both carry the `key` the SENDING device computed, so cards match without re-deriving
+// keyOf() in Node. One hash implementation, in the browser, is the point.
+let REMOTE=[];
+const INBOX_CAP=40;   // if inbox is ever deeper than this the pipeline is stalled anyway
+function remoteCache(){try{const v=JSON.parse(localStorage.op_remote||"[]");return Array.isArray(v)?v:[]}catch{return[]}}
+async function loadRemote(){
+  const out=[];
+  try{const r=JSON.parse(await ghGet("receipts.json"));
+    if(r&&Array.isArray(r.items))for(const e of r.items)
+      if(e&&e.key)out.push({id:e.id,key:e.key,type:e.type,label:e.label||"",text:e.text||"",
+        ts:Date.parse(e.ts)||0,remote:true});
+  }catch{}
+  try{
+    const list=await ghList("inbox");
+    const js=list.filter(f=>f.type==="file"&&f.name.endsWith(".json")).slice(0,INBOX_CAP);
+    const got=await Promise.all(js.map(f=>ghGet(`inbox/${f.name}`).then(JSON.parse).catch(()=>null)));
+    for(const e of got)if(e&&e.key)out.push({id:e.id,key:e.key,type:e.type,label:e.label||e.target||"",
+      text:e.text||"",ts:Date.parse(e.ts)||0,remote:true,pending:true});
+  }catch{}
+  REMOTE=out;
+  try{localStorage.op_remote=JSON.stringify(out.slice(-400));}catch{}
+}
+// Local wins on id collision: this device's own copy has the truthful local timestamp.
+function allSent(){
+  const local=outbox();
+  const mine=new Set(local.map(e=>e.id).filter(Boolean));
+  return local.concat(REMOTE.filter(e=>e.id&&!mine.has(e.id)));
+}
+function sentFor(k){return allSent().filter(e=>e.key===k).sort((a,b)=>(a.ts||0)-(b.ts||0));}
 const fmtT=ts=>new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
 const fmtD=ts=>new Date(ts).toLocaleDateString([],{weekday:"long",month:"short",day:"numeric"});
 const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured",voice:"Voice note",review:"Review resolved"};
 function sentInner(k){
   return sentFor(k).map(e=>{
     const old=new Date(e.ts).toDateString()!==new Date().toDateString();
-    return `<div class="sentitem"><span class="sm">${ic("check",12)} ${SENTLBL[e.type]||"Sent"} · ${
-      old?new Date(e.ts).toLocaleDateString([],{month:"short",day:"numeric"})+" ":""}${fmtT(e.ts)}</span>${
+    // Say WHERE it came from. "You already answered this from the other device" is the
+    // whole reason this card is not blank, and it is the thing that stops a second answer.
+    const src=e.remote?` · ${e.pending?"other device, pending sync":"other device"}`:"";
+    return `<div class="sentitem${e.remote?" remote":""}"><span class="sm">${ic("check",12)} ${
+      SENTLBL[e.type]||"Sent"} · ${
+      old?new Date(e.ts).toLocaleDateString([],{month:"short",day:"numeric"})+" ":""}${fmtT(e.ts)}${src}</span>${
       e.text?`<p>${esc(e.text)}</p>`:""}</div>`;}).join("");
 }
 function refreshSent(k){document.querySelectorAll(`[data-sent="${k}"]`).forEach(n=>n.innerHTML=sentInner(k));
@@ -367,6 +456,11 @@ function refreshSent(k){document.querySelectorAll(`[data-sent="${k}"]`).forEach(
 // GitHub
 async function ghGet(p){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}?t=${Date.now()}`,
   {headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github.raw"}});if(!r.ok)throw new Error(r.status+"");return await r.text();}
+// Directory listing. Needs the JSON accept header: the raw one is for blobs.
+// A 404 here is normal and expected — inbox/ does not exist until the first intent is sent.
+async function ghList(p){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}?t=${Date.now()}`,
+  {headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github+json"}});
+  if(!r.ok)throw new Error(r.status+"");const j=await r.json();return Array.isArray(j)?j:[];}
 async function ghPut(p,content,message){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}`,
   {method:"PUT",headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github+json"},body:JSON.stringify({message,content:b64(content)})});
   if(!r.ok)throw new Error(r.status+"");}
@@ -382,9 +476,15 @@ const blobB64=b=>new Promise((res,rej)=>{const r=new FileReader();
 function stampName(){const d=new Date(),p=n=>String(n).padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;}
 
+// Returns the intent id. Callers MUST pass it to recordSent() and MUST set `key`:
+// the id is what dedupes this device's local receipt against the same intent coming
+// back down in receipts.json, and the key is what ties the receipt to a card on the
+// OTHER device. An intent sent without a key still applies to the vault fine, it just
+// goes invisible everywhere except the sending device's Sent tab.
 async function sendIntent(intent){if(!have()){openSettings();throw new Error("nocfg");}
   const id=`${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-  await ghPut(`inbox/${id}.json`,JSON.stringify({id,ts:new Date().toISOString(),...intent},null,2),`intent: ${intent.type}`);}
+  await ghPut(`inbox/${id}.json`,JSON.stringify({id,ts:new Date().toISOString(),...intent},null,2),`intent: ${intent.type}`);
+  return id;}
 
 // ---- Today renderer ----
 function collectItems(lines){const out=[];let cur=null;
@@ -610,7 +710,7 @@ function openSync(){
   const rows=[
     ["Last run",`${ms<60000?"just now":relAge(ms)+" ago"} · ${new Date(SYNC.at).toLocaleString()}${
       ms>3*3600000?'<br><span style="color:var(--hot)">Stalled — nothing has run in hours.</span>':""}`],
-    ["Published",`${pub.today?esc(pub.today):"no daily note"} · ${pub.register_topics??"?"} topics · ${pub.review_items??"?"} reviews`],
+    ["Published",`${pub.today?esc(pub.today):"no daily note"} · ${pub.register_topics??"?"} topics · ${pub.review_items??"?"} reviews · ${pub.receipts??"?"} receipts`],
     ["Applied",`${a.intents||0} intent${a.intents===1?"":"s"}${a.voice?`, ${a.voice} voice`:""}${a.cleared?`, ${a.cleared} cleared`:""}`],
     ["Pull",bad(SYNC.pull)],
     ["Push · data",bad(p.data)],
@@ -685,7 +785,7 @@ function openReview(file){
   $("#rv-presets").innerHTML=RV_PRESETS.map(t=>`<button class="preset" data-preset="${att(t)}">${esc(t)}</button>`).join("");
   const a=$("#rv-answer");a.value="";a.dataset.file=it.file;a.dataset.title=it.title;
   $("#rv-foot").innerHTML=prior.length
-    ? `Already resolved from this phone: “${esc(prior[prior.length-1].text)}”. Sending again appends a note instead.`
+    ? `Already resolved${prior[prior.length-1].remote?" from your other device":""}: “${esc(prior[prior.length-1].text)}”. Sending again appends a note instead.`
     : `Writes a <code>## Resolution</code> section into <code>${esc(it.file)}</code>. The Librarian actions it and archives the note on the next run — the same as answering in Obsidian.`;
   $("#review").showModal();$("#review").scrollTop=0;
 }
@@ -694,8 +794,8 @@ async function resolveReview(){
   const file=a.dataset.file,k=rvKey(file);
   const btn=$("#rv-resolve");btn.disabled=true;
   try{
-    await sendIntent({type:"review_resolve",target:file,text:v});
-    recordSent({key:k,type:"review",label:a.dataset.title,text:v});
+    const id=await sendIntent({type:"review_resolve",target:file,text:v,key:k,label:a.dataset.title});
+    recordSent({id,key:k,type:"review",label:a.dataset.title,text:v});
     $("#review").close();renderReview();toast("Resolved");
   }catch(e){toast(e.message==="nocfg"?"Connect your repo first":"Failed");}
   finally{btn.disabled=false;}
@@ -703,39 +803,47 @@ async function resolveReview(){
 
 // Sent
 function renderSentView(){
-  const l=outbox().slice().sort((a,b)=>b.ts-a.ts);
+  const l=allSent().slice().sort((a,b)=>b.ts-a.ts);
   if(!l.length){$("#view-sent").innerHTML='<div class="empty">Nothing sent yet.<br><span style="font-size:13px">Replies, notes, pushes and captures land here so you can see what you already said.</span></div>';return;}
-  let html='<p class="orient" style="margin:0">Everything this phone has sent to the vault. Kept on this device for 45 days.</p>',day="";
+  let html='<p class="orient" style="margin:0">Everything sent to the vault, from any device. Applied history comes from the repo; this device also keeps its own copy for 45 days.</p>',day="";
   for(const e of l){
     const d=fmtD(e.ts);
     if(d!==day){day=d;html+=`<div class="daylbl">${esc(d)}</div>`;}
-    html+=`<div class="scard"><div class="sh">${ic("plane",12)} ${SENTLBL[e.type]||esc(e.type)}<span class="tm">${fmtT(e.ts)}</span></div>`
+    const tag=e.remote?`<span class="chip" style="margin-left:6px">${e.pending?"other device · pending sync":"other device"}</span>`:"";
+    html+=`<div class="scard"><div class="sh">${ic("plane",12)} ${SENTLBL[e.type]||esc(e.type)}${tag}<span class="tm">${fmtT(e.ts)}</span></div>`
       +(e.label?`<div class="stg">${esc(e.label)}</div>`:"")
       +(e.text?`<div class="stx">${esc(e.text)}</div>`:"")+`</div>`;
   }
-  html+=`<button class="clearbtn" id="sent-clear">Clear sent history on this phone</button>`;
+  html+=`<button class="clearbtn" id="sent-clear">Clear this device's local copy</button>`;
+  html+=`<p class="rvfoot">Clearing only drops the local cache. Anything already applied stays in the repo's receipts and will reappear on the next sync.</p>`;
   $("#view-sent").innerHTML=html;
 }
 
 async function load(){
   const cN=localStorage.op_today,cR=localStorage.op_reg,cV=localStorage.op_review,cS=localStorage.op_status;
   if(cS){try{SYNC=JSON.parse(cS);}catch{}}
+  REMOTE=remoteCache();          // last-known cross-device receipts, so the first paint is honest
   renderSync();
   if(cN)$("#view-today").innerHTML=renderToday(cN);
   if(cR)renderPriority(JSON.parse(cR));
   if(cV){try{RVQ=JSON.parse(cV);}catch{}}
   renderReview();renderSentView();renderRec();
   if(!have()){$("#view-today").innerHTML='<div class="empty">Tap ⚙ to connect your repo.</div>';return;}
+  // loadRemote() rides along in the same batch and must settle BEFORE renderToday: the ask
+  // cards and the Todoist chips read sentFor() as they build, so a late arrival would paint
+  // a card as unanswered that the other device already answered.
   try{const[note,reg,rev,sta]=await Promise.all([
       ghGet("today.md").catch(()=>cN||""),
       ghGet("priority-register.json").catch(()=>cR||""),
       ghGet("review-queue.json").catch(()=>cV||""),
-      ghGet("sync-status.json").catch(()=>"")]);
+      ghGet("sync-status.json").catch(()=>""),
+      loadRemote().catch(()=>{})]);
     if(sta){localStorage.op_status=sta;try{SYNC=JSON.parse(sta);}catch{}}
     renderSync();
     if(note){localStorage.op_today=note;$("#view-today").innerHTML=renderToday(note);}
     if(reg){localStorage.op_reg=reg;renderPriority(JSON.parse(reg));}
-    if(rev){localStorage.op_review=rev;try{RVQ=JSON.parse(rev);renderReview();}catch{}}}
+    if(rev){localStorage.op_review=rev;try{RVQ=JSON.parse(rev);}catch{}}
+    renderReview();renderSentView();}
   catch(e){toast("Sync failed — showing cached");}
 }
 
@@ -763,16 +871,16 @@ document.addEventListener("click",async e=>{
 
   const cb=e.target.closest(".cb");
   if(cb&&!cb.classList.contains("done")){
-    try{await sendIntent({type:"complete",target:cb.dataset.done});
+    try{const id=await sendIntent({type:"complete",target:cb.dataset.done,key:cb.dataset.key,label:cb.dataset.done});
       cb.classList.add("done");cb.innerHTML=ic("checkfill",20);
-      recordSent({key:cb.dataset.key,type:"complete",label:cb.dataset.done,text:""});
+      recordSent({id,key:cb.dataset.key,type:"complete",label:cb.dataset.done,text:""});
       refreshSent(cb.dataset.key);toast("Marked done");}catch{toast("Failed");}
     return;}
 
   const push=e.target.closest("[data-push]");
   if(push){const t=push.dataset.push,k=push.dataset.key;push.disabled=true;
-    try{await sendIntent({type:"phone_this",target:t});
-      recordSent({key:k,type:"phone_this",label:t,text:""});
+    try{const id=await sendIntent({type:"phone_this",target:t,key:k,label:t});
+      recordSent({id,key:k,type:"phone_this",label:t,text:""});
       push.outerHTML=`<span class="chip ok">${ic("check",12)} Queued for Todoist</span>`;
       refreshSent(k);toast("Pushing to Todoist on next sync");}
     catch{push.disabled=false;toast("Failed");}
@@ -786,8 +894,8 @@ document.addEventListener("click",async e=>{
   const sn=e.target.closest("[data-send-note]");
   if(sn){const inp=sn.previousElementSibling;const v=inp.value.trim();if(!v)return;
     const k=inp.dataset.key;
-    try{await sendIntent({type:"comment",target:inp.dataset.target,text:v});
-      recordSent({key:k,type:"comment",label:inp.dataset.target,text:v});
+    try{const id=await sendIntent({type:"comment",target:inp.dataset.target,text:v,key:k,label:inp.dataset.target});
+      recordSent({id,key:k,type:"comment",label:inp.dataset.target,text:v});
       inp.value="";inp.blur();sn.closest(".reply").hidden=true;
       refreshSent(k);toast("Note sent");}catch{toast("Failed");}
     return;}
@@ -799,16 +907,16 @@ document.addEventListener("click",async e=>{
     // in a "Let's talk" section shares the same [!ask] header line, so sending the header
     // (what this did until 2026-07-27) makes four replies indistinguishable in the vault.
     const anc=inp.dataset.anchor||"";
-    try{await sendIntent({type:"reply",target:anc||inp.dataset.ask,anchor:anc,label:inp.dataset.ask,text:v});
-      recordSent({key:k,type:"reply",label:inp.dataset.ask,text:v});
+    try{const id=await sendIntent({type:"reply",target:anc||inp.dataset.ask,anchor:anc,label:inp.dataset.ask,text:v,key:k});
+      recordSent({id,key:k,type:"reply",label:inp.dataset.ask,text:v});
       inp.value="";inp.blur();inp.placeholder="Add another…";
       const card=sa.closest(".ask");if(card)card.classList.add("answered");
       refreshSent(k);toast("Reply sent");}catch{toast("Failed");}
     return;}
 
   if(e.target.id==="tc-send"){const ta=$("#today-comment");const v=ta.value.trim();if(!v)return;
-    try{await sendIntent({type:"comment",text:v});
-      recordSent({key:"__comment",type:"comment",label:"Today's note",text:v});
+    try{const id=await sendIntent({type:"comment",text:v,key:"__comment",label:"Today's note"});
+      recordSent({id,key:"__comment",type:"comment",label:"Today's note",text:v});
       ta.value="";ta.blur();refreshSent("__comment");toast("Comment sent");}catch{toast("Failed");}
     return;}
 
@@ -822,7 +930,9 @@ document.addEventListener("click",async e=>{
     e.target.textContent=open?"Show all":"Show less";return;}
 
   if(e.target.id==="sent-clear"){localStorage.removeItem(OB);renderSentView();
-    document.querySelectorAll("[data-sent]").forEach(n=>n.innerHTML="");toast("History cleared");return;}
+    // Repaint from REMOTE rather than blanking: the repo's receipts survive a local clear.
+    document.querySelectorAll("[data-sent]").forEach(n=>{const k=n.dataset.sent;n.innerHTML=k?sentInner(k):"";});
+    toast("Local copy cleared");return;}
 });
 
 // ---- voice notes -------------------------------------------------------
@@ -913,8 +1023,8 @@ async function sendRec(){
 }
 
 $("#cap-send").onclick=async()=>{const v=$("#cap").value.trim();if(!v)return;
-  try{await sendIntent({type:"capture",text:v});
-    recordSent({key:"__capture",type:"capture",label:"",text:v});
+  try{const id=await sendIntent({type:"capture",text:v,key:"__capture"});
+    recordSent({id,key:"__capture",type:"capture",label:"",text:v});
     $("#cap").value="";$("#cap").blur();toast("Captured");}catch{toast("Failed");}};
 $("#reload").onclick=load;
 function openSettings(){const c=cfg();$("#cfg-owner").value=c.owner;$("#cfg-repo").value=c.repo;$("#cfg-token").value=c.token;$("#settings").showModal();}

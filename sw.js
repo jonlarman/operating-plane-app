@@ -1,7 +1,7 @@
 // Minimal service worker: cache the app shell so the icon opens instantly and works offline.
-// Vault data (today.md / priority-register.json) is always fetched live from GitHub, never cached here —
-// the app keeps its own last-good copy in localStorage for offline rendering.
-const SHELL = "op-shell-v8";
+// Vault data (today.md / priority-register.json / receipts.json) is always fetched live from
+// GitHub, never cached here — the app keeps its own last-good copy in localStorage for offline.
+const SHELL = "op-shell-v9";
 const FILES = ["./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", e => {
