@@ -5,8 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0f1115" />
 <title>Operating Plane</title>
+<!-- Favicon set. The .ico is not legacy cruft: Safari did not support SVG favicons until v26,
+     so on any older Safari the .ico is the only thing standing between you and a blank tab.
+     Declaration order matters — browsers that understand image/svg+xml take the later, sharper
+     SVG; everything else falls back to the .ico above it. -->
+<link rel="icon" href="favicon.ico" sizes="32x32" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="apple-touch-icon" href="icon.svg" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <style>
