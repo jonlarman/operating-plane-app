@@ -435,11 +435,19 @@ async function loadRemote(){
   REMOTE=out;
   try{localStorage.op_remote=JSON.stringify(out.slice(-400));}catch{}
 }
-// Local wins on id collision: this device's own copy has the truthful local timestamp.
+// Local wins on collision: this device's own copy has the truthful local timestamp.
+// Two dedupe passes, and the second one is not optional. `recordSent` only started storing
+// `id` on 2026-07-27, so every outbox entry written before that has no id, can never match
+// its own receipt coming back in receipts.json, and would render TWICE on the device that
+// sent it — once local, once remote — for the full 45-day retention window. Those fall back
+// to a content signature. Keyed on key+type+text, not ts: the local clock stamp and the
+// intent's ISO ts are written at different moments and do not agree.
+const sigOf=e=>`${e.key||""}|${e.type||""}|${(e.text||"").trim()}`;
 function allSent(){
   const local=outbox();
-  const mine=new Set(local.map(e=>e.id).filter(Boolean));
-  return local.concat(REMOTE.filter(e=>e.id&&!mine.has(e.id)));
+  const ids=new Set(local.map(e=>e.id).filter(Boolean));
+  const sigs=new Set(local.filter(e=>!e.id).map(sigOf));
+  return local.concat(REMOTE.filter(e=>!(e.id&&ids.has(e.id))&&!sigs.has(sigOf(e))));
 }
 function sentFor(k){return allSent().filter(e=>e.key===k).sort((a,b)=>(a.ts||0)-(b.ts||0));}
 const fmtT=ts=>new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
