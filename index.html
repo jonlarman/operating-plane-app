@@ -532,7 +532,7 @@ function asks(body){let html="",i=0;const L=body;
         <p class="aq">${inline(q.join(" "))}</p>
         <div class="sent" data-sent="${k}">${sentInner(k)}</div>
         <div class="reply">
-          <input placeholder="${answered?"Add another…":"yes / no / a note…"}" data-ask="${att(plain(head).slice(0,120))}" data-key="${k}" />
+          <input placeholder="${answered?"Add another…":"yes / no / a note…"}" data-anchor="${att(anchor?"^"+anchor:"")}" data-ask="${att((plain(q.join(" ")).replace(/\s+/g," ").trim()||plain(head)).slice(0,120))}" data-key="${k}" />
           <button class="send" data-send-ask>${ic("arrow",16)}</button>
         </div>
       </div>`;
@@ -795,7 +795,11 @@ document.addEventListener("click",async e=>{
   const sa=e.target.closest("[data-send-ask]");
   if(sa){const inp=sa.previousElementSibling;const v=inp.value.trim();if(!v)return;
     const k=inp.dataset.key;
-    try{await sendIntent({type:"reply",target:inp.dataset.ask,text:v});
+    // The ^ask- block id is the ONLY thing that ties a reply back to its card. Every card
+    // in a "Let's talk" section shares the same [!ask] header line, so sending the header
+    // (what this did until 2026-07-27) makes four replies indistinguishable in the vault.
+    const anc=inp.dataset.anchor||"";
+    try{await sendIntent({type:"reply",target:anc||inp.dataset.ask,anchor:anc,label:inp.dataset.ask,text:v});
       recordSent({key:k,type:"reply",label:inp.dataset.ask,text:v});
       inp.value="";inp.blur();inp.placeholder="Add another…";
       const card=sa.closest(".ask");if(card)card.classList.add("answered");
