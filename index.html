@@ -452,7 +452,7 @@ function allSent(){
 function sentFor(k){return allSent().filter(e=>e.key===k).sort((a,b)=>(a.ts||0)-(b.ts||0));}
 const fmtT=ts=>new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
 const fmtD=ts=>new Date(ts).toLocaleDateString([],{weekday:"long",month:"short",day:"numeric"});
-const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured",voice:"Voice note",review:"Review resolved"};
+const SENTLBL={reply:"You replied",comment:"Your note",phone_this:"Pushed to Todoist",complete:"Marked done",capture:"Captured",voice:"Voice note",review:"Review resolved",name:"Name answered"};
 function sentInner(k){
   return sentFor(k).map(e=>{
     const old=new Date(e.ts).toDateString()!==new Date().toDateString();
@@ -724,7 +724,7 @@ function openSync(){
   const rows=[
     ["Last run",`${ms<60000?"just now":relAge(ms)+" ago"} · ${new Date(SYNC.at).toLocaleString()}${
       ms>3*3600000?'<br><span style="color:var(--hot)">Stalled — nothing has run in hours.</span>':""}`],
-    ["Published",`${pub.today?esc(pub.today):"no daily note"} · ${pub.register_topics??"?"} topics · ${pub.review_items??"?"} reviews · ${pub.receipts??"?"} receipts`],
+    ["Published",`${pub.today?esc(pub.today):"no daily note"} · ${pub.register_topics??"?"} topics · ${pub.review_items??"?"} reviews (${pub.name_rows??"?"} name rows) · ${pub.receipts??"?"} receipts`],
     ["Applied",`${a.intents||0} intent${a.intents===1?"":"s"}${a.voice?`, ${a.voice} voice`:""}${a.cleared?`, ${a.cleared} cleared`:""}`],
     ["Pull",bad(SYNC.pull)],
     ["Push · data",bad(p.data)],
@@ -748,6 +748,11 @@ const RV_PRESETS=[
   "Stakeholder Map only, no card.",
   "Not now — ask me again in a month.",
 ];
+// Name Desk rows. The three dispositions are terminal by contract (Workflow Rules § "Identity
+// gaps go to the Name Desk"): "Don't know" demotes the row to Low stakes and stops it asking,
+// "Doesn't matter" deletes it and freezes the hedge in the source notes, "Not a person" reroutes
+// to entity handling. None of them re-fires, so a tap here genuinely closes the row.
+const ND_PRESETS=["Don't know","Doesn't matter","Not a person"];
 function mdBlock(src){
   const out=[];let list=null;
   const flush=()=>{if(list!=null){out.push(`<ul class="mdul">${list}</ul>`);list=null;}};
@@ -765,52 +770,74 @@ function mdBlock(src){
   }
   flush();return out.join("");
 }
-const rvKey=file=>keyOf("rv:"+file);
-const rvDone=file=>sentFor(rvKey(file)).some(e=>e.type==="review");
+// A Name Desk row and a review note both render as cards, but a row is one of many sharing one
+// file — so the identity is the `^nd-` anchor, never the path. Keying rows by file would mark
+// every row on the desk resolved the moment you answered one.
+const rvId=i=>i.anchor||i.file;
+const rvKey=i=>keyOf(i.anchor?("nd:"+i.anchor):("rv:"+i.file));
+const rvDone=i=>sentFor(rvKey(i)).some(e=>e.type==="review"||e.type==="name");
 function renderReview(){
   const el=$("#view-review");
   if(!RVQ||!RVQ.items){el.innerHTML='<div class="empty">No review queue yet.<br><span style="font-size:13px">It appears after the next sync.</span></div>';return;}
-  const open=RVQ.items.filter(i=>!rvDone(i.file));
-  const done=RVQ.items.filter(i=>rvDone(i.file));
+  const open=RVQ.items.filter(i=>!rvDone(i));
+  const done=RVQ.items.filter(i=>rvDone(i));
   if(!RVQ.items.length){el.innerHTML='<div class="empty">Review queue is clear.</div>';return;}
   const card=i=>{
-    const d=rvDone(i.file);
+    const d=rvDone(i);
     const age=i.days!=null?`${i.days}d`:"";
-    return `<button class="rvcard${d?" done":""}" data-rv="${att(i.file)}">
-      <span class="rvtop"><span class="chip">${esc(i.kind)}</span>${
+    return `<button class="rvcard${d?" done":""}" data-rv="${att(rvId(i))}">
+      <span class="rvtop"><span class="chip">${esc(i.kind==="name"?(i.section==="blocking"?"name":"name · low stakes"):i.kind)}</span>${
         d?`<span class="chip ok">${ic("check",12)} Resolved</span>`:""}
         <span class="rvage${i.days>=30?" old":""}">${esc(age)}</span></span>
       <span class="rvt">${esc(i.title)}</span>
       ${i.question?`<span class="rvq">${inline(i.question)}</span>`:""}
     </button>`;};
+  const nOpen=open.filter(i=>i.kind==="name"),bl=nOpen.filter(i=>i.section==="blocking");
+  const notes=open.filter(i=>i.kind!=="name");
   let html=`<div class="rvhead"><b>${open.length} to review</b><span>${
-    open.length?`oldest ${Math.max(...open.map(i=>i.days||0))} days`:"all clear"}</span></div>`;
+    open.length?[bl.length?`${bl.length} name${bl.length>1?"s":""} blocking`:"",
+      nOpen.length-bl.length?`${nOpen.length-bl.length} low stakes`:"",
+      notes.length?`${notes.length} note${notes.length>1?"s":""}`:""].filter(Boolean).join(" · ")
+      :"all clear"}</span></div>`;
   html+=open.map(card).join("");
   if(done.length)html+=`<div class="sec" style="margin-top:22px">${ic("check")}<span>Resolved, awaiting sweep</span><span class="n">${done.length}</span></div>`+done.map(card).join("");
   el.innerHTML=html;
 }
-function openReview(file){
-  const it=RVQ&&RVQ.items.find(i=>i.file===file);if(!it)return;
+function openReview(id){
+  const it=RVQ&&RVQ.items.find(i=>rvId(i)===id);if(!it)return;
+  const isName=it.kind==="name";
   $("#rv-title").textContent=it.title;
-  $("#rv-meta").innerHTML=`${esc(it.kind)}${it.date?` · ${esc(it.date)}`:""}${
-    it.days!=null?` · ${it.days} days old`:""}${it.source?` · via ${esc(it.source)}`:""}`;
+  $("#rv-meta").innerHTML=isName
+    ? `name${it.section==="low"?" · low stakes":" · blocking"}${it.heard?` · heard in ${esc(it.heard)}`:""}`
+    : `${esc(it.kind)}${it.date?` · ${esc(it.date)}`:""}${
+      it.days!=null?` · ${it.days} days old`:""}${it.source?` · via ${esc(it.source)}`:""}`;
   $("#rv-body").innerHTML=mdBlock(it.body);
-  const prior=sentFor(rvKey(it.file)).filter(e=>e.type==="review");
-  $("#rv-presets").innerHTML=RV_PRESETS.map(t=>`<button class="preset" data-preset="${att(t)}">${esc(t)}</button>`).join("");
-  const a=$("#rv-answer");a.value="";a.dataset.file=it.file;a.dataset.title=it.title;
+  const prior=sentFor(rvKey(it)).filter(e=>e.type==="review"||e.type==="name");
+  $("#rv-presets").innerHTML=(isName?ND_PRESETS:RV_PRESETS)
+    .map(t=>`<button class="preset" data-preset="${att(t)}">${esc(t)}</button>`).join("");
+  const a=$("#rv-answer");a.value="";a.dataset.id=rvId(it);a.dataset.title=it.title;
+  a.placeholder=isName?"Who is this? A surname is enough.":"What should happen with this?";
   $("#rv-foot").innerHTML=prior.length
-    ? `Already resolved${prior[prior.length-1].remote?" from your other device":""}: “${esc(prior[prior.length-1].text)}”. Sending again appends a note instead.`
-    : `Writes a <code>## Resolution</code> section into <code>${esc(it.file)}</code>. The Librarian actions it and archives the note on the next run — the same as answering in Obsidian.`;
+    ? `Already answered${prior[prior.length-1].remote?" from your other device":""}: “${esc(prior[prior.length-1].text)}”. Sending again appends a note instead.`
+    : isName
+      ? `Writes <code>re ^${esc(it.anchor)}</code> into the Name Desk. The next run puts the name into every note carrying the hedge, makes a card if there isn't one, and deletes the row.`
+      : `Writes a <code>## Resolution</code> section into <code>${esc(it.file)}</code>. The Librarian actions it and archives the note on the next run — the same as answering in Obsidian.`;
   $("#review").showModal();$("#review").scrollTop=0;
 }
 async function resolveReview(){
   const a=$("#rv-answer");const v=a.value.trim();if(!v){toast("Write a decision first");return;}
-  const file=a.dataset.file,k=rvKey(file);
+  const it=RVQ&&RVQ.items.find(i=>rvId(i)===a.dataset.id);if(!it)return;
+  const isName=it.kind==="name",k=rvKey(it);
   const btn=$("#rv-resolve");btn.disabled=true;
   try{
-    const id=await sendIntent({type:"review_resolve",target:file,text:v,key:k,label:a.dataset.title});
-    recordSent({id,key:k,type:"review",label:a.dataset.title,text:v});
-    $("#review").close();renderReview();toast("Resolved");
+    // A name row carries its anchor, never its path: the sync job refuses a name_answer whose
+    // anchor is not a `^nd-` id, and the path alone identifies a dozen rows at once.
+    const intent=isName
+      ? {type:"name_answer",target:it.anchor,anchor:it.anchor,text:v,key:k,label:it.title}
+      : {type:"review_resolve",target:it.file,text:v,key:k,label:it.title};
+    const id=await sendIntent(intent);
+    recordSent({id,key:k,type:isName?"name":"review",label:it.title,text:v});
+    $("#review").close();renderReview();toast(isName?"Answered":"Resolved");
   }catch(e){toast(e.message==="nocfg"?"Connect your repo first":"Failed");}
   finally{btn.disabled=false;}
 }
