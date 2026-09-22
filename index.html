@@ -206,6 +206,45 @@
   #rv-answer{width:100%;min-height:90px;background:var(--surface2);border:0.5px solid var(--line);
     border-radius:10px;padding:11px;color:var(--text);font-family:inherit;font-size:16px;line-height:1.5;resize:vertical}
   .rvfoot{font-size:11.5px;color:var(--faint);line-height:1.5;margin:9px 0 0}
+  /* names tab: one card per Name Desk row, answered in place with one tap */
+  .nd{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:12px 13px 11px;margin-bottom:10px}
+  .nd.pending{border-color:var(--accent)}
+  .nd.answered{border-color:var(--good)}
+  .ndt{font-size:15px;font-weight:600;line-height:1.35;margin:0}
+  .ndw{font-size:13px;color:var(--muted);line-height:1.5;margin:5px 0 0;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .ndg{margin-top:11px}
+  .ndgl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:0 0 6px}
+  .ndopts{display:flex;flex-wrap:wrap;gap:7px}
+  .ndopt{font-family:inherit;font-size:14px;font-weight:600;min-height:40px;padding:8px 14px;border-radius:10px;cursor:pointer;
+    background:var(--accent-bg);border:0.5px solid transparent;color:var(--accent);text-align:left;line-height:1.3}
+  .ndopt.sel{background:var(--accent);color:#fff}
+  .ndopt.other{background:none;border:1px dashed var(--line);color:var(--muted);font-weight:500}
+  .ndopt.other.sel{border-style:solid;border-color:var(--accent);color:var(--accent);background:none}
+  .ndopt.ndk{background:var(--surface2);color:var(--muted);font-weight:500}
+  .ndopt.ndk.sel{background:var(--muted);color:var(--bg)}
+  .nd .reply{margin-top:9px}
+  .ndsend{width:100%;margin-top:12px;min-height:42px;border:none;border-radius:10px;background:var(--accent);color:#fff;
+    font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}
+  .ndsend:disabled{background:var(--surface2);color:var(--faint);cursor:default}
+  .ndfoot{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-top:11px}
+  .ndlink{background:none;border:none;padding:4px 0;font-family:inherit;font-size:12.5px;color:var(--faint);cursor:pointer}
+  .ndlink.more{margin-left:auto;color:var(--accent);font-weight:600}
+  .ndbody{margin-top:10px;padding-top:10px;border-top:0.5px solid var(--line)}
+  .ndbody[hidden]{display:none}
+  .ndpend{display:flex;align-items:center;gap:10px;margin-top:11px;background:var(--accent-bg);border-radius:10px;padding:9px 11px}
+  .ndpend p{margin:0;flex:1;min-width:0;font-size:13.5px;line-height:1.4}
+  .ndpend button{flex:none;font-family:inherit;font-size:14px;font-weight:700;background:none;border:none;color:var(--accent);cursor:pointer;padding:6px 4px}
+  .ndans{margin-top:9px;font-size:13.5px;line-height:1.45}
+  .ndans b{color:var(--good);font-weight:600}
+  details.ndsec{margin-top:18px}
+  details.ndsec > summary{list-style:none;cursor:pointer}
+  details.ndsec > summary::-webkit-details-marker{display:none}
+  details.ndsec > summary .sec{margin:0 0 9px}
+  .tabs button{position:relative}
+  .tbadge{position:absolute;top:4px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 5px;border-radius:999px;
+    background:var(--hot);color:#fff;font-size:10.5px;font-weight:700;line-height:17px;text-align:center}
+  .tbadge:empty{display:none}
   /* sent view */
   .daylbl{font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 7px}
   .scard{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px}
@@ -268,6 +307,7 @@
     .toast{left:calc(50% + (var(--rail) / 2));bottom:26px}
     dialog{width:min(88vw,560px);max-height:86vh}
     #review{width:min(88vw,680px)}
+    .tbadge{position:static;margin-left:auto}
     #cap{min-height:170px}
   }
   @media (hover:hover){
@@ -300,6 +340,7 @@
     <div id="rec"></div>
   </section>
   <section id="view-review" hidden></section>
+  <section id="view-names" hidden></section>
   <section id="view-sent" hidden></section>
 </main>
 
@@ -307,6 +348,7 @@
   <button data-v="today" class="on"><svg viewBox="0 0 24 24"><path d="M8.5 7h11M8.5 12h11M8.5 17h11"/><path d="M4.5 7h.01M4.5 12h.01M4.5 17h.01"/></svg>Today</button>
   <button data-v="priority"><svg viewBox="0 0 24 24"><path d="M12 4l8 4.2-8 4.2-8-4.2z"/><path d="M4 13.5l8 4.2 8-4.2"/></svg>Priority</button>
   <button data-v="review"><svg viewBox="0 0 24 24"><path d="M4 13.5h4l1.5 2.5h5l1.5-2.5h4"/><path d="M4 13.5V19a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-5.5"/><path d="M6.6 5h10.8L20 13.5H4z"/></svg>Review</button>
+  <button data-v="names"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>Names<span class="tbadge" id="nd-badge"></span></button>
   <button data-v="capture"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Capture</button>
   <button data-v="sent"><svg viewBox="0 0 24 24"><path d="M4 11.5L20 4l-7.5 16-2-6.5z"/><path d="M10.5 13.5L20 4"/></svg>Sent</button>
 </nav>
@@ -475,8 +517,10 @@ async function ghGet(p){const c=cfg();const r=await fetch(`https://api.github.co
 async function ghList(p){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}?t=${Date.now()}`,
   {headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github+json"}});
   if(!r.ok)throw new Error(r.status+"");const j=await r.json();return Array.isArray(j)?j:[];}
-async function ghPut(p,content,message){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}`,
-  {method:"PUT",headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github+json"},body:JSON.stringify({message,content:b64(content)})});
+// `keep` sets fetch keepalive so a PUT fired as the app is backgrounded still completes (Names tab
+// undo window). Opt-in only: keepalive caps the body at 64KB, which a long capture could exceed.
+async function ghPut(p,content,message,keep){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${p}`,
+  {method:"PUT",keepalive:!!keep,headers:{Authorization:`Bearer ${c.token}`,Accept:"application/vnd.github+json"},body:JSON.stringify({message,content:b64(content)})});
   if(!r.ok)throw new Error(r.status+"");}
 // Binary upload: the Contents API wants raw base64 of the bytes, not utf-8-then-btoa.
 async function ghPutB64(p,b64content,message){const c=cfg();
@@ -495,9 +539,9 @@ function stampName(){const d=new Date(),p=n=>String(n).padStart(2,"0");
 // back down in receipts.json, and the key is what ties the receipt to a card on the
 // OTHER device. An intent sent without a key still applies to the vault fine, it just
 // goes invisible everywhere except the sending device's Sent tab.
-async function sendIntent(intent){if(!have()){openSettings();throw new Error("nocfg");}
+async function sendIntent(intent,keep){if(!have()){openSettings();throw new Error("nocfg");}
   const id=`${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-  await ghPut(`inbox/${id}.json`,JSON.stringify({id,ts:new Date().toISOString(),...intent},null,2),`intent: ${intent.type}`);
+  await ghPut(`inbox/${id}.json`,JSON.stringify({id,ts:new Date().toISOString(),...intent},null,2),`intent: ${intent.type}`,keep);
   return id;}
 
 // ---- Today renderer ----
@@ -779,9 +823,11 @@ const rvDone=i=>sentFor(rvKey(i)).some(e=>e.type==="review"||e.type==="name");
 function renderReview(){
   const el=$("#view-review");
   if(!RVQ||!RVQ.items){el.innerHTML='<div class="empty">No review queue yet.<br><span style="font-size:13px">It appears after the next sync.</span></div>';return;}
-  const open=RVQ.items.filter(i=>!rvDone(i));
-  const done=RVQ.items.filter(i=>rvDone(i));
-  if(!RVQ.items.length){el.innerHTML='<div class="empty">Review queue is clear.</div>';return;}
+  // Name Desk rows live in the Names tab (2026-09-22); this tab is review notes only.
+  const items=RVQ.items.filter(i=>i.kind!=="name");
+  const open=items.filter(i=>!rvDone(i));
+  const done=items.filter(i=>rvDone(i));
+  if(!items.length){el.innerHTML='<div class="empty">Review queue is clear.<br><span style="font-size:13px">Name questions are in the Names tab.</span></div>';return;}
   const card=i=>{
     const d=rvDone(i);
     const age=i.days!=null?`${i.days}d`:"";
@@ -792,13 +838,7 @@ function renderReview(){
       <span class="rvt">${esc(i.title)}</span>
       ${i.question?`<span class="rvq">${inline(i.question)}</span>`:""}
     </button>`;};
-  const nOpen=open.filter(i=>i.kind==="name"),bl=nOpen.filter(i=>i.section==="blocking");
-  const notes=open.filter(i=>i.kind!=="name");
-  let html=`<div class="rvhead"><b>${open.length} to review</b><span>${
-    open.length?[bl.length?`${bl.length} name${bl.length>1?"s":""} blocking`:"",
-      nOpen.length-bl.length?`${nOpen.length-bl.length} low stakes`:"",
-      notes.length?`${notes.length} note${notes.length>1?"s":""}`:""].filter(Boolean).join(" · ")
-      :"all clear"}</span></div>`;
+  let html=`<div class="rvhead"><b>${open.length} to review</b><span>${open.length?"notes":"all clear"}</span></div>`;
   html+=open.map(card).join("");
   if(done.length)html+=`<div class="sec" style="margin-top:22px">${ic("check")}<span>Resolved, awaiting sweep</span><span class="n">${done.length}</span></div>`+done.map(card).join("");
   el.innerHTML=html;
@@ -842,6 +882,158 @@ async function resolveReview(){
   finally{btn.disabled=false;}
 }
 
+// ---- Names tab (2026-09-22) ----------------------------------------------
+// The Name Desk as its own tab, answered in place. Buttons come ONLY from the row's `Options:`
+// line (published as `options: [{label, values}]`), never from the `Candidates:` prose — some
+// rows name people there to rule them out. A row with no Options gets a text box and the three
+// dispositions. Every answer goes out as the same `name_answer` intent the Review sheet used, so
+// the sync job and orchestrator step 4c are unchanged.
+//
+// One tap does not send immediately: it parks the answer for ND_WAIT ms with an Undo, and only
+// then PUTs the intent. Backgrounding the app flushes every parked answer at once (keepalive
+// fetch), so closing the app inside the window sends rather than drops.
+const ND_WAIT=5000;
+const ND_DISP=["Don't know","Doesn't matter","Not a person"];
+let ND_PEND={},ND_SEL={},ND_OTHER={},ND_DRAFT={},ND_OPEN=new Set(),ND_EDIT=new Set(),ND_LOWOPEN=null,ND_DONEOPEN=false;
+const ndItems=()=>(RVQ&&Array.isArray(RVQ.items)?RVQ.items:[]).filter(i=>i.kind==="name"&&i.anchor);
+const ndItem=a=>ndItems().find(i=>i.anchor===a);
+// A single group with no values is just a text box; a labelled empty group inside a bundle still
+// gets its own Don't know / Other slot.
+const ndGroups=i=>{const g=(Array.isArray(i.options)?i.options:[]).filter(g=>g&&Array.isArray(g.values)&&(g.values.length||g.label));
+  return g.length===1&&!g[0].values.length?[]:g;};
+const ndLast=i=>{const l=sentFor(rvKey(i)).filter(e=>e.type==="name");return l.length?l[l.length-1]:null;};
+const ndEl=a=>document.querySelector(`[data-nd="${CSS.escape(a)}"]`);
+const optBtn=(v,gi,sel,cls="")=>`<button class="ndopt${cls}${sel?" sel":""}" data-nd-opt="${att(v)}" data-gi="${gi}">${esc(plain(v))}</button>`;
+
+function ndCard(i){
+  const a=i.anchor,groups=ndGroups(i),multi=groups.length>1,pend=ND_PEND[a];
+  const last=ndLast(i),done=!!last&&!ND_EDIT.has(a);
+  let h=`<div class="nd${pend?" pending":done?" answered":""}" data-nd="${att(a)}">`;
+  h+=`<p class="ndt">${inline(i.title)}</p>`;
+  if(i.stakes)h+=`<p class="ndw">${inline(i.stakes)}</p>`;
+  let foot="";
+  if(pend){
+    h+=`<div class="ndpend"><p>Sending “${esc(plain(pend.text))}”</p><button data-nd-undo>Undo</button></div>`;
+  }else if(done){
+    h+=`<p class="ndans"><b>${ic("check",13)} Answered${last.remote?" on your other device":""}</b> · ${esc(plain(last.text))}</p>`;
+    foot=`<button class="ndlink" data-nd-change>Change answer</button>`;
+  }else if(!groups.length){
+    const other=`<div class="reply"><input data-nd-in="0" value="${att(ND_DRAFT[a]||"")}" placeholder="Who is it? A surname is enough." enterkeyhint="send" autocomplete="off"><button class="send" data-nd-send aria-label="Send">${ic("arrow",16)}</button></div>`;
+    h+=other;
+    foot=ND_DISP.map(d=>`<button class="ndlink" data-nd-disp="${att(d)}">${esc(d)}</button>`).join("");
+  }else if(!multi){
+    const open=ND_OTHER[a]===0;
+    h+=`<div class="ndg"><div class="ndopts">${groups[0].values.map(v=>optBtn(v,0,false)).join("")}
+      <button class="ndopt other${open?" sel":""}" data-nd-other data-gi="0">Other…</button></div>`;
+    if(open)h+=`<div class="reply"><input data-nd-in="0" value="${att(ND_DRAFT[a]||"")}" placeholder="Type the name" enterkeyhint="send" autocomplete="off"><button class="send" data-nd-send aria-label="Send">${ic("arrow",16)}</button></div>`;
+    h+=`</div>`;
+    foot=ND_DISP.map(d=>`<button class="ndlink" data-nd-disp="${att(d)}">${esc(d)}</button>`).join("");
+  }else{
+    const sel=ND_SEL[a]||(ND_SEL[a]=groups.map(()=>null));
+    groups.forEach((g,gi)=>{
+      const s=sel[gi],isOther=s&&typeof s==="object";
+      h+=`<div class="ndg"><span class="ndgl">${esc(g.label||`Name ${gi+1}`)}</span><div class="ndopts">${
+        g.values.map(v=>optBtn(v,gi,s===v)).join("")}${optBtn("Don't know",gi,s==="Don't know"," ndk")}
+        <button class="ndopt other${isOther?" sel":""}" data-nd-other data-gi="${gi}">Other…</button></div>`;
+      if(isOther)h+=`<div class="reply"><input data-nd-in="${gi}" value="${att(s.other)}" placeholder="Type the name" autocomplete="off"></div>`;
+      h+=`</div>`;});
+    h+=`<button class="ndsend" data-nd-send${ndReady(a)?"":" disabled"}>${ndReady(a)?"Send answers":`Pick one for each name`}</button>`;
+    foot=ND_DISP.slice(1).map(d=>`<button class="ndlink" data-nd-disp="${att(d)}">${esc(d)} (whole row)</button>`).join("");
+  }
+  h+=`<div class="ndfoot">${foot}<button class="ndlink more" data-nd-more>${ND_OPEN.has(a)?"Hide details":"Details"}</button></div>`;
+  h+=`<div class="ndbody md"${ND_OPEN.has(a)?"":" hidden"}>${ND_OPEN.has(a)?mdBlock(i.body):""}</div>`;
+  return h+`</div>`;
+}
+function ndReady(a){const s=ND_SEL[a];return !!s&&s.length>0&&s.every(x=>x&&(typeof x==="string"||x.other.trim()));}
+function ndMultiText(i){const g=ndGroups(i),s=ND_SEL[i.anchor]||[];
+  return g.map((x,gi)=>`${x.label||`Name ${gi+1}`} = ${typeof s[gi]==="string"?s[gi]:s[gi].other.trim()}`).join("; ");}
+function ndRepaint(a){const el=ndEl(a),i=ndItem(a);if(el&&i)el.outerHTML=ndCard(i);}
+function ndBadge(){const n=ndItems().filter(i=>i.section==="blocking"&&!ndLast(i)&&!ND_PEND[i.anchor]).length;
+  const b=$("#nd-badge");if(b)b.textContent=n?String(n):"";}
+
+function renderNames(){
+  const el=$("#view-names");ndBadge();if(!el)return;
+  if(!RVQ){el.innerHTML='<div class="empty">No Name Desk yet.<br><span style="font-size:13px">It appears after the next sync.</span></div>';return;}
+  const all=ndItems();
+  if(!all.length){el.innerHTML='<div class="empty">Name Desk is clear.</div>';return;}
+  const isDone=i=>!!ndLast(i)&&!ND_EDIT.has(i.anchor)&&!ND_PEND[i.anchor];
+  const open=all.filter(i=>!isDone(i)),done=all.filter(isDone);
+  const bl=open.filter(i=>i.section==="blocking"),low=open.filter(i=>i.section!=="blocking");
+  if(ND_LOWOPEN===null)ND_LOWOPEN=!bl.length;
+  let h=`<div class="rvhead"><b>${open.length} to answer</b><span>${[bl.length?`${bl.length} blocking`:"",low.length?`${low.length} low stakes`:""].filter(Boolean).join(" · ")||"all clear"}</span></div>`;
+  h+=`<p class="orient" style="margin:-4px 0 14px;font-size:13px">Tap the right name. You get ${ND_WAIT/1000} seconds to undo before it sends.</p>`;
+  h+=bl.map(ndCard).join("");
+  if(!bl.length&&low.length)h+=`<p class="orient" style="margin:0 0 4px">Nothing blocking.</p>`;
+  if(low.length)h+=`<details class="ndsec" id="nd-low"${ND_LOWOPEN?" open":""}><summary><div class="sec">${ic("chev",16)}<span>Low stakes</span><span class="n">${low.length}</span></div></summary>${low.map(ndCard).join("")}</details>`;
+  if(done.length)h+=`<details class="ndsec" id="nd-done"${ND_DONEOPEN?" open":""}><summary><div class="sec">${ic("check",16)}<span>Answered, waiting for sync</span><span class="n">${done.length}</span></div></summary>${done.map(ndCard).join("")}</details>`;
+  el.innerHTML=h;
+}
+function ndSchedule(a,text){
+  text=String(text||"").trim();if(!text)return;
+  const i=ndItem(a);if(!i)return;
+  ND_PEND[a]={text,timer:setTimeout(()=>ndCommit(a),ND_WAIT)};
+  delete ND_OTHER[a];ndRepaint(a);ndBadge();
+}
+async function ndCommit(a,keep){
+  const p=ND_PEND[a];if(!p)return;clearTimeout(p.timer);delete ND_PEND[a];
+  const i=ndItem(a);if(!i){renderNames();return;}
+  const k=rvKey(i);
+  try{
+    // Same intent shape resolveReview() sends for a name row: anchor, never path.
+    const id=await sendIntent({type:"name_answer",target:a,anchor:a,text:p.text,key:k,label:i.title},keep);
+    recordSent({id,key:k,type:"name",label:i.title,text:p.text});
+    ND_EDIT.delete(a);delete ND_SEL[a];delete ND_DRAFT[a];
+    if(!keep)toast("Answered");
+  }catch(e){
+    ND_DRAFT[a]=p.text;if(!ndGroups(i).length||ndGroups(i).length===1)ND_OTHER[a]=0;
+    toast(e.message==="nocfg"?"Connect your repo first":"Didn't send. Tap again.");
+  }
+  renderNames();
+}
+function ndFlush(){for(const a of Object.keys(ND_PEND))ndCommit(a,true);}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")ndFlush();});
+window.addEventListener("pagehide",ndFlush);
+document.addEventListener("toggle",e=>{
+  if(e.target.id==="nd-low")ND_LOWOPEN=e.target.open;
+  if(e.target.id==="nd-done")ND_DONEOPEN=e.target.open;},true);
+document.addEventListener("input",e=>{
+  const inp=e.target.closest("[data-nd-in]");if(!inp)return;
+  const card=inp.closest("[data-nd]"),a=card.dataset.nd,gi=+inp.dataset.ndIn;
+  const s=ND_SEL[a];
+  if(s&&s[gi]&&typeof s[gi]==="object"){s[gi].other=inp.value;
+    const b=card.querySelector(".ndsend");if(b){const r=ndReady(a);b.disabled=!r;b.textContent=r?"Send answers":"Pick one for each name";}}
+  else ND_DRAFT[a]=inp.value;
+});
+// Returns true when the click was a Names-tab control.
+function ndClick(e){
+  const card=e.target.closest("[data-nd]");if(!card)return false;
+  const a=card.dataset.nd,i=ndItem(a);if(!i)return true;
+  const multi=ndGroups(i).length>1;
+  const opt=e.target.closest("[data-nd-opt]");
+  if(opt){const v=opt.dataset.ndOpt,gi=+opt.dataset.gi;
+    if(multi){const s=ND_SEL[a];s[gi]=s[gi]===v?null:v;ndRepaint(a);}
+    else ndSchedule(a,v);
+    return true;}
+  const oth=e.target.closest("[data-nd-other]");
+  if(oth){const gi=+oth.dataset.gi;
+    if(multi){const s=ND_SEL[a];s[gi]=s[gi]&&typeof s[gi]==="object"?null:{other:""};}
+    else ND_OTHER[a]=ND_OTHER[a]===0?undefined:0;
+    ndRepaint(a);
+    const inp=ndEl(a)&&ndEl(a).querySelector(`[data-nd-in="${gi}"]`);if(inp)inp.focus();
+    return true;}
+  if(e.target.closest("[data-nd-send]")){
+    if(multi){if(ndReady(a))ndSchedule(a,ndMultiText(i));}
+    else{const inp=card.querySelector("[data-nd-in]");if(inp)ndSchedule(a,inp.value);}
+    return true;}
+  const d=e.target.closest("[data-nd-disp]");
+  if(d){ndSchedule(a,d.dataset.ndDisp);return true;}
+  if(e.target.closest("[data-nd-undo]")){const p=ND_PEND[a];if(p){clearTimeout(p.timer);delete ND_PEND[a];}
+    ndRepaint(a);ndBadge();toast("Undone");return true;}
+  if(e.target.closest("[data-nd-change]")){ND_EDIT.add(a);renderNames();return true;}
+  if(e.target.closest("[data-nd-more]")){ND_OPEN.has(a)?ND_OPEN.delete(a):ND_OPEN.add(a);ndRepaint(a);return true;}
+  return false;
+}
+
 // Sent
 function renderSentView(){
   const l=allSent().slice().sort((a,b)=>b.ts-a.ts);
@@ -868,7 +1060,7 @@ async function load(){
   if(cN)$("#view-today").innerHTML=renderToday(cN);
   if(cR)renderPriority(JSON.parse(cR));
   if(cV){try{RVQ=JSON.parse(cV);}catch{}}
-  renderReview();renderSentView();renderRec();
+  renderReview();renderNames();renderSentView();renderRec();
   if(!have()){$("#view-today").innerHTML='<div class="empty">Tap ⚙ to connect your repo.</div>';return;}
   // loadRemote() rides along in the same batch and must settle BEFORE renderToday: the ask
   // cards and the Todoist chips read sentFor() as they build, so a late arrival would paint
@@ -884,7 +1076,7 @@ async function load(){
     if(note){localStorage.op_today=note;$("#view-today").innerHTML=renderToday(note);}
     if(reg){localStorage.op_reg=reg;renderPriority(JSON.parse(reg));}
     if(rev){localStorage.op_review=rev;try{RVQ=JSON.parse(rev);}catch{}}
-    renderReview();renderSentView();}
+    renderReview();renderNames();renderSentView();}
   catch(e){toast("Sync failed — showing cached");}
 }
 
@@ -892,13 +1084,15 @@ async function load(){
 document.addEventListener("click",async e=>{
   const tab=e.target.closest(".tabs button");
   if(tab){const v=tab.dataset.v;document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("on",b===tab));
-    $("#htitle").textContent={today:"Today",priority:"Priority",review:"Review",capture:"Capture",sent:"Sent"}[v];
+    $("#htitle").textContent={today:"Today",priority:"Priority",review:"Review",names:"Names",capture:"Capture",sent:"Sent"}[v];
     $("#view-today").hidden=v!=="today";$("#view-priority").hidden=v!=="priority";
-    $("#view-review").hidden=v!=="review";
+    $("#view-review").hidden=v!=="review";$("#view-names").hidden=v!=="names";
     $("#view-capture").hidden=v!=="capture";$("#view-sent").hidden=v!=="sent";
     if(v==="sent")renderSentView();
     if(v==="review")renderReview();
+    if(v==="names")renderNames();
     window.scrollTo(0,0);return;}
+  if(e.target.closest("#view-names")&&ndClick(e))return;
 
   const rv=e.target.closest("[data-rv]");
   if(rv){openReview(rv.dataset.rv);return;}
@@ -1079,7 +1273,7 @@ $("#cfg-save").onclick=()=>{localStorage.op_owner=$("#cfg-owner").value.trim();l
 // Enter sends from any single-line reply field
 document.addEventListener("keydown",e=>{
   if(e.key!=="Enter")return;const i=e.target.closest(".reply input");if(!i)return;
-  e.preventDefault();i.nextElementSibling.click();});
+  e.preventDefault();if(i.nextElementSibling)i.nextElementSibling.click();});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 load();
 </script>
