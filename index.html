@@ -117,6 +117,45 @@
   .logitem{font-size:13px;line-height:1.6;color:var(--muted);margin:8px 0 0}
   .banner{display:flex;gap:9px;background:var(--warn-bg);border-radius:var(--radius);padding:11px 13px;margin:12px 0 0;font-size:13px;line-height:1.5}
   .banner svg{width:18px;height:18px;color:var(--warn)}
+  /* Today: every section renders (2026-10-09) */
+  .banner b{font-weight:600}
+  details.more{margin-top:6px}
+  details.more summary{cursor:pointer;color:var(--warn);font-weight:600;font-size:12.5px;list-style:none}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more[open] summary{margin-bottom:8px}
+  details.more .md{font-size:13px;color:var(--text)}
+  .wins{border-color:var(--good-bg)}
+  .win{display:flex;gap:9px;align-items:flex-start}
+  .win + .win{margin-top:9px;padding-top:9px;border-top:0.5px solid var(--line)}
+  .win svg{width:17px;height:17px;color:var(--good);margin-top:2px}
+  .win p{margin:0;font-size:14px;line-height:1.5}
+  .mtg{gap:12px}
+  .mtime{flex:none;min-width:84px;font-size:12.5px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;padding-top:1px}
+  .lblc{padding:11px 13px}
+  .lbl{display:flex;align-items:center;gap:6px;margin:0 0 5px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .lbl svg{width:15px;height:15px}
+  .lbx{margin:0;font-size:14px;line-height:1.55}
+  .md.loose{margin:0 0 9px;font-size:13.5px;color:var(--muted)}
+  .md.loose .mdp:last-child,.md.loose .mdul:last-child{margin-bottom:0}
+  .card.md{font-size:14px}
+  .card.md > :last-child{margin-bottom:0}
+  .tip{display:flex;gap:9px;align-items:flex-start;background:var(--accent-bg);border-radius:10px;padding:10px 12px;margin:4px 0 9px;font-size:13.5px;line-height:1.5}
+  .tip svg{width:15px;height:15px;color:var(--accent);margin-top:3px}
+  .tip b{color:var(--accent);font-weight:600}
+  .mdtw{overflow-x:auto;margin:0 0 9px;-webkit-overflow-scrolling:touch}
+  .mdt{border-collapse:collapse;font-size:13px;min-width:100%}
+  .mdt th,.mdt td{text-align:left;vertical-align:top;padding:6px 8px;border-bottom:0.5px solid var(--line)}
+  .mdt th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--faint)}
+  .md ol.mdul{padding-left:21px}
+  .refhd{margin-top:34px;padding-top:16px;border-top:0.5px solid var(--line)}
+  details.refsec{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+  details.refsec > summary{list-style:none;cursor:pointer;padding:11px 13px;display:block}
+  details.refsec > summary::-webkit-details-marker{display:none}
+  details.refsec .rt{display:block;font-size:14px;font-weight:600;line-height:1.35}
+  details.refsec .rp{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  details.refsec[open] .rp{display:none}
+  details.refsec > .md{padding:0 13px 4px;border-top:0.5px solid var(--line);padding-top:11px}
+  details.logwrap summary .n{font-weight:400;color:var(--faint)}
   .wl{color:var(--accent)}
   a{color:var(--accent);text-decoration:none}
   #today-comment,#cap{width:100%;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);
@@ -551,36 +590,125 @@ function collectItems(lines){const out=[];let cur=null;
   if(cur!=null)out.push(cur);return out;}
 
 function splitTom(t){
-  const b=t.match(/\*\*(.+?)\*\*/);const title=b?b[1]:t;let rest=b?t.slice(b.index+b[0].length):"";
+  // Only a LEADING bold run is the title; a bold phrase mid-sentence would drop the words before it.
+  const b=t.match(/^\s*\*\*(.+?)\*\*/);const title=b?b[1]:t;let rest=b?t.slice(b.index+b[0].length):"";
   const links=[...rest.matchAll(/\[\[([^\]]+)\]\]/g)];const link=links.length?links[links.length-1][1].split("|").pop():"";
   let why=rest.replace(/\s*(?:→|->)\s*\[\[[^\]]+\]\]\s*$/,"").replace(/\[\[([^\]]+)\]\]/g,(_,m)=>m.split("|").pop());
   why=why.replace(/^[\s—\-.:]+/,"").trim();return{title,why,link};}
 
+// ---- Today -----------------------------------------------------------------
+// Contract (2026-10-09): EVERY section of the daily note renders. Known headings get a
+// purpose-built layout; anything else (a rotation variant, a new section, the Reference
+// block) falls back to a generic card. The briefer rotates its shape below Act now every
+// day, and the old whitelist renderer silently dropped whatever it did not recognise
+// (Scoreboard, Today's meetings and the whole Reference block were never on the phone).
+// If you add a special layout, the generic fallback still has to stay the default.
+function noteSegments(md){
+  // "#" and "##" start a section; "###" and deeper stay inside the parent's body, so the
+  // alert's Critical/Warning lists and the Spotlight's sub-blocks stay with their section.
+  const segs=[];let cur=null;
+  for(const ln of md.split("\n")){
+    const h=ln.match(/^(#{1,2})\s+(.*)/);
+    if(h){cur={lvl:h[1].length,head:h[2].trim(),body:[]};segs.push(cur);}
+    else if(cur)cur.body.push(ln);
+    else if(ln.trim()){cur={lvl:2,head:"",body:[ln]};segs.push(cur);}
+  }
+  return segs;
+}
+// Machine markers a reader never needs: standalone block ids and HTML comments.
+const noiseLine=l=>/^\s*\^[\w-]+\s*$/.test(l)||/^\s*<!--.*-->\s*$/.test(l)||/^\s*(?:-{3,}|\*{3,})\s*$/.test(l);
+const cleanBody=b=>b.filter(l=>!noiseLine(l)).map(l=>l.replace(/\s+\^[\w-]+\s*$/,""));
+// Split a body into prose before the first list item, the list itself (items, their
+// wrapped lines, and bold-only group headers), and prose after it. Blank lines end an
+// item, so a trailing paragraph renders as prose instead of gluing onto the last item.
+function partition(body){
+  const pre=[],list=[],post=[];let inItem=false,seen=false;
+  for(const l of body){
+    const isItem=/^\s*(?:[-*]|\d+\.)\s+/.test(l), isGrp=/^\*\*[^*]+\*\*:?\s*$/.test(l.trim());
+    if(isItem||isGrp){list.push(l);inItem=isItem;seen=true;}
+    else if(!l.trim()){inItem=false;(seen?post:pre).push(l);}
+    else if(inItem)list.push(l);
+    else (seen?post:pre).push(l);
+  }
+  return{pre,list,post};
+}
+const prose=lines=>{const t=lines.join("\n").trim();return t?`<div class="md loose">${mdBlock(t)}</div>`:"";};
+const tipBox=t=>`<div class="tip">${ic("spark",15)}<div><b>Try this</b> ${inline(t.replace(/^\s*\*\*Try this:?\*\*:?\s*/i,""))}</div></div>`;
+const genCard=b=>{const t=b.join("\n").trim();return t?`<div class="card md">${mdBlock(t)}</div>`:"";};
+
+function wins(list){return `<div class="card wins">${collectItems(list).map(i=>
+  `<div class="win">${ic("check",17)}<p>${inline(i)}</p></div>`).join("")}</div>`;}
+function meetings(list){return `<div class="rows">${collectItems(list).map(i=>{
+  const m=i.match(/^(\d{1,2}:\d{2}\s*(?:to|-|–)\s*\d{1,2}:\d{2})\s*·\s*(.*)$/);
+  return m?`<div class="row mtg"><span class="mtime">${esc(m[1].replace(/\s*to\s*/," – "))}</span><p>${inline(m[2])}</p></div>`
+          :`<div class="row mtg"><p>${inline(i)}</p></div>`;}).join("")}</div>`;}
+// "Three things" style sections: every bullet leads with a **Label:**. One small card each.
+const LBL_ICON=[[/act when|this week/i,"clock"],[/eye on|watch/i,"eye"],[/missed/i,"alert"],[/decision|decide/i,"target"],[/stood down/i,"history"]];
+function labeledItems(list){const its=collectItems(list);
+  return its.length&&its.every(i=>/^\*\*[^*]+?:\*\*/.test(i))?its:null;}
+function labeled(its){return its.map(i=>{const m=i.match(/^\*\*([^*]+?):\*\*\s*(.*)$/);
+  const icn=(LBL_ICON.find(([re])=>re.test(m[1]))||[0,"spark"])[1];
+  return `<div class="card lblc"><p class="lbl">${ic(icn,15)} ${inline(m[1])}</p><p class="lbx">${inline(m[2])}</p></div>`;}).join("");}
+
 function renderToday(md){
   const counts=(md.match(/board_counts:\s*"([^"]+)"/)||[])[1]||"";
-  md=md.split(/\n#\s*Reference\b/)[0].replace(/^---[\s\S]*?---\s*/,"");
-  const lines=md.split("\n");const segs=[];let cur=null;
-  for(const ln of lines){const h=ln.match(/^(#{1,3})\s+(.*)/);
-    if(h){cur={lvl:h[1].length,head:h[2].trim(),body:[]};segs.push(cur);}else if(cur)cur.body.push(ln);}
+  md=md.replace(/^---[\s\S]*?\n---\s*\n/,"");
+  // "## Phone inbox" holds your own phone writes; the Sent tab already shows those.
+  md=md.split(/\n##\s+Phone inbox\b/)[0];
+  const [slim,...refParts]=md.split(/\n#\s+Reference\b[^\n]*/);
   let html="";
-  for(const s of segs){
-    const h=s.head.toLowerCase();
-    if(/^alert/i.test(s.head)){html+=`<div class="banner">${ic("alert")}<div>${inline(s.body.join(" ").trim())||esc(s.head)}</div></div>`;continue;}
-    if(s.lvl===1){const orient=s.body.find(l=>l.trim())||"";
-      html+=`<h2 class="dhead">${esc(s.head)}</h2>${orient?`<p class="orient">${inline(orient)}</p>`:""}`;
-      if(counts)html+=pills(counts);continue;}
-    if(h.includes("top of mind"))html+=sec("target","Top of mind",tom(s.body));
-    else if(h.includes("act now"))html+=sec("check","Act now",actNow(s.body));
-    else if(h.includes("act when you can"))html+=sec("clock","This week",softCard(s.body));
-    else if(h.includes("keep an eye on"))html+=sec("eye","Keep an eye on",eyeList(s.body));
-    else if(h.includes("might have missed"))html+=sec("alert","You might have missed",missed(s.body),collectItems(s.body).length);
-    else if(h.includes("stood down"))html+=sec("history","Stood down",eyeList(s.body));
-    else if(h.includes("let's talk")||h.includes("lets talk"))html+=sec("chat","Let's talk",asks(s.body));
+  for(const s of noteSegments(slim)){
+    const h=s.head.toLowerCase(), title=esc(plain(s.head));
+    const tips=[],body=[];
+    for(const l of cleanBody(s.body))(/^\s*\*\*Try this:?\*\*/i.test(l)?tips:body).push(l);
+    const {pre,list,post}=partition(body);
+    const wrap=(icn,label,inner,n)=>sec(icn,label,prose(pre)+inner+prose(post),n);
+    if(/^alert/.test(h)){
+      const lines=body.filter(l=>l.trim());const head=lines.find(l=>!/^#/.test(l))||"";
+      const rest=body.slice(body.indexOf(head)+1).join("\n").trim();
+      html+=`<div class="banner">${ic("alert")}<div><b>${title}</b><br>${inline(head)}`
+        +(rest?`<details class="more"><summary>Show details</summary><div class="md">${mdBlock(rest)}</div></details>`:"")+`</div></div>`;
+    }
+    else if(s.lvl===1){const i=body.findIndex(l=>l.trim());const orient=i<0?"":body[i];
+      html+=`<h2 class="dhead">${title}</h2>${orient?`<p class="orient">${inline(orient)}</p>`:""}`;
+      if(counts)html+=pills(counts);
+      if(i>=0)html+=prose(body.slice(i+1));}
+    else if(h.startsWith("scoreboard"))html+=wrap("check","Scoreboard",list.length?wins(list):"");
+    else if(h.includes("top of mind"))html+=wrap("target","Top of mind",tom(list));
+    else if(/^today'?s meetings/.test(h)&&!body.some(l=>/^\|/.test(l.trim())))html+=wrap("clock","Today's meetings",list.length?meetings(list):"");
+    else if(h.startsWith("act now"))html+=wrap("check","Act now",actNow(list));
+    else if(h.includes("act when you can"))html+=wrap("clock","This week",list.length?softCard(list):"");
+    else if(h.includes("keep an eye on"))html+=wrap("eye","Keep an eye on",eyeList(list));
+    else if(h.includes("might have missed"))html+=wrap("alert","You might have missed",missed(list),collectItems(list).length);
+    else if(h.includes("stood down"))html+=wrap("history",title,eyeList(list));
+    else if(h.includes("let's talk")||h.includes("lets talk"))html+=sec("chat","Let's talk",asks(s.body.filter(l=>!/^\s*\*\*Try this:?\*\*/i.test(l))));
     else if(h.includes("drop a comment"))html+=sec("pencil","Drop a comment",
       `<textarea id="today-comment" placeholder="Flag anything — it lands in the vault…"></textarea>`+
       `<div class="row2"><button class="primary" id="tc-send">Send comment</button></div>`+
       `<div class="sent" data-sent="__comment">${sentInner("__comment")}</div>`);
-    else if(h.includes("today's log")||h.includes("todays log"))html+=`<details class="logwrap"><summary>${ic("clock",16)} Today's log</summary>${collectItems(s.body).map(i=>`<p class="logitem">${inline(i)}</p>`).join("")}</details>`;
+    else if(h.includes("today's log")||h.includes("todays log")){const its=collectItems(list);
+      html+=`<details class="logwrap"><summary>${ic("clock",16)} Today's log${its.length?` <span class="n">${its.length}</span>`:""}</summary>${its.map(i=>`<p class="logitem">${inline(i)}</p>`).join("")}${prose(pre.concat(post).filter(l=>!/^\s*\*[^*].*\*\s*$/.test(l)))}</details>`;}
+    else{const lb=labeledItems(list);
+      // The compressed rotation variants name themselves by position ("Below Act now (three
+      // things)", "The rest, in three lines"); that means nothing on the phone.
+      const label=/below act now|in three lines|three things below/i.test(s.head)?"The rest":(title||"Note");
+      html+=sec("spark",label,lb?prose(pre)+labeled(lb)+prose(post):genCard(body));}
+    for(const t of tips)html+=tipBox(t);
+  }
+  // Reference block: everything the briefer files below the fold. Collapsed by default so the
+  // morning read stays short; each card shows its first line so you can tell what is in it.
+  const ref=refParts.join("\n");
+  const rsegs=noteSegments(ref).filter(s=>s.head&&s.body.some(l=>l.trim()&&!noiseLine(l)));
+  if(rsegs.length){
+    html+=`<div class="sec refhd">${ic("history")}<span>Reference</span><span class="n">${rsegs.length} · tap to open</span></div>`;
+    for(const s of rsegs){
+      // The Spotlight's brain-dump prompts are for typing in Obsidian; on the phone they are read-only noise.
+      let b=cleanBody(s.body).filter(l=>!/^\s*\*Type freely below/i.test(l)&&!/^\s*(?:LinkedIn URL|Notes):\s*$/i.test(l));
+      const bd=b.findIndex(l=>/^###\s+Brain dump\s*$/i.test(l));
+      if(bd>=0&&!b.slice(bd+1).some(l=>l.trim()))b=b.slice(0,bd);
+      const first=b.find(l=>l.trim()&&!/^#/.test(l)&&!/^\s*\*.*\*\s*$/.test(l))||b.find(l=>l.trim())||"";
+      const pv=plain(first.replace(/^\s*(?:[-*>]|\d+\.)\s+/,"").replace(/\*\*([^*]+)\*\*/g,"$1").replace(/`/g,""));
+      html+=`<details class="refsec"><summary><span class="rt">${esc(plain(s.head))}</span><span class="rp">${esc(pv)}</span></summary><div class="md">${mdBlock(b.join("\n"))}</div></details>`;}
   }
   return html||'<div class="empty">Nothing to show. Tap ↻ or ⚙.</div>';
 }
@@ -611,7 +739,8 @@ function parseAct(raw){
   }
   const lm=main.match(/\s*(?:→|->)\s*\[\[([^\]]+)\]\]\s*$/);
   if(lm){link=lm[1].split("|").pop();main=main.slice(0,lm.index);}
-  const b=main.match(/\*\*(.+?)\*\*/);
+  // Only a LEADING bold run is the title (see splitTom); otherwise the whole line is.
+  const b=main.match(/^\s*\*\*(.+?)\*\*/);
   const title=(b?b[1]:main).trim();
   // keep a leading em dash: "**Title** — why" reads wrong without it
   const why=(b?main.slice(b.index+b[0].length):"").replace(/^[\s:]+/,"").trim();
@@ -674,19 +803,26 @@ function missed(body){return collectItems(body).map(it=>{const p=it.split(/\s+�
   let why=p.join(" — ").replace(/\s*(?:→|->)\s*\[\[[^\]]+\]\]\s*$/,"").replace(/\[\[([^\]]+)\]\]/g,(_,m)=>m.split("|").pop());
   return `<div class="card miss">${ic("alert",18)}<div><p class="mt">${inline(title)}</p>${why.trim()?`<p class="why">${inline(why)}</p>`:""}</div></div>`;}).join("");}
 
-function asks(body){let html="",i=0;const L=body;
+function asks(body){let html="",i=0;const L=body,other=[];
   while(i<L.length){
     if(/^>\s*\[!ask\]/i.test(L[i])){
       const head=L[i].replace(/^>\s*\[!ask\]\s*/i,"");i++;const q=[];
       while(i<L.length&&/^>/.test(L[i])){const inn=L[i].replace(/^>\s?/,"").replace(/^>\s?/,"");
         if(inn.trim()&&!/^reply:/i.test(inn))q.push(inn);i++;}
       let anchor="";
-      if(i<L.length&&/^\^ask-/.test(L[i].trim())){anchor=L[i].trim().slice(1);i++;}
+      // Obsidian needs a blank line between a callout and its block id, and the briefer writes
+      // one, so look past blank lines. Before 2026-10-09 this only checked the very next line,
+      // which is always blank: every reply went out unanchored ("no card anchor sent").
+      let j=i;while(j<L.length&&!L[j].trim())j++;
+      if(j<L.length&&/^\^ask-/.test(L[j].trim())){anchor=L[j].trim().slice(1);i=j+1;}
       // Stable key: prefer the ^ask- block id so a carried-over question keeps its reply history.
-      const k=anchor?keyOf(anchor):keyOf(plain(head)+plain(q.join(" ")).slice(0,80));
+      // Receipts sent while anchors were being missed live under the text key; keep showing them.
+      const k0=keyOf(plain(head)+plain(q.join(" ")).slice(0,80));
+      let k=anchor?keyOf(anchor):k0;
+      if(anchor&&!sentFor(k).length&&sentFor(k0).length)k=k0;
       const answered=sentFor(k).length>0;
       html+=`<div class="ask ${answered?"answered":""}" data-key="${k}">
-        <div class="ah">${ic("spark",15)} ${esc(head)}</div>
+        <div class="ah">${ic("spark",15)} ${inline(head)}</div>
         <p class="aq">${inline(q.join(" "))}</p>
         <div class="sent" data-sent="${k}">${sentInner(k)}</div>
         <div class="reply">
@@ -694,9 +830,10 @@ function asks(body){let html="",i=0;const L=body;
           <button class="send" data-send-ask>${ic("arrow",16)}</button>
         </div>
       </div>`;
-    } else i++;
+    } else{if(!noiseLine(L[i]))other.push(L[i]);i++;}
   }
-  return html;}
+  // Anything in Let's talk that is not a card (e.g. "Also open, not rendered: ...") still shows.
+  return html+prose(other);}
 
 // Priority
 // Rows carry only what you scan for: the title and what happens next. Status, signal age
@@ -798,19 +935,29 @@ const RV_PRESETS=[
 // to entity handling. None of them re-fires, so a tap here genuinely closes the row.
 const ND_PRESETS=["Don't know","Doesn't matter","Not a person"];
 function mdBlock(src){
-  const out=[];let list=null;
-  const flush=()=>{if(list!=null){out.push(`<ul class="mdul">${list}</ul>`);list=null;}};
+  // Shared by the review sheet and the Today fallback cards. Handles headings, callouts,
+  // quotes, tasks, bullet and numbered lists (wrapped lines stay in their item), and tables.
+  const out=[];let list=null,lt="ul",tbl=null;
+  const flushL=()=>{if(list){out.push(`<${lt} class="mdul">${list.map(i=>`<li>${inline(i)}</li>`).join("")}</${lt}>`);list=null;}};
+  const flushT=()=>{if(tbl){const [hd,...rows]=tbl;
+    out.push(`<div class="mdtw"><table class="mdt"><thead><tr>${hd.map(c=>`<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${
+      rows.map(r=>`<tr>${r.map(c=>`<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);tbl=null;}};
+  const flush=()=>{flushL();flushT();};
+  const cells=t=>t.replace(/\[\[[^\]]*\]\]/g,m=>m.replace(/\|/g,"\u0001")).replace(/^\||\|$/g,"").split("|").map(c=>c.trim().replace(/\u0001/g,"|"));
   for(const raw of String(src||"").split("\n")){
     const t=raw.trim();
     if(!t){flush();continue;}
     let m;
-    if(m=t.match(/^(#{1,4})\s+(.*)/)){flush();out.push(`<p class="mdh">${inline(m[2])}</p>`);continue;}
+    if(/^\|.*\|$/.test(t)){flushL();if(/^\|[\s:|-]+\|$/.test(t))continue;(tbl=tbl||[]).push(cells(t));continue;}
+    flushT();
+    if(m=t.match(/^(#{1,6})\s+(.*)/)){flush();out.push(`<p class="mdh">${inline(m[2])}</p>`);continue;}
     if(m=t.match(/^>\s?\[!(\w+)\]\s*(.*)/)){flush();out.push(`<div class="mdq"><strong>${esc(m[1])}</strong> ${inline(m[2])}</div>`);continue;}
-    if(m=t.match(/^>\s?(.*)/)){flush();out.push(`<div class="mdq">${inline(m[1])}</div>`);continue;}
-    if(m=t.match(/^[-*]\s+\[( |x)\]\s+(.*)/i)){flush();
-      out.push(`<p class="mdtask">${m[1].toLowerCase()==="x"?"☑":"☐"} ${inline(m[2])}</p>`);continue;}
-    if(m=t.match(/^[-*]\s+(.*)/)){list=(list||"")+`<li>${inline(m[1])}</li>`;continue;}
-    flush();out.push(`<p class="mdp">${inline(t)}</p>`);
+    if(m=t.match(/^>\s?(.*)/)){flush();if(m[1].trim()&&m[1].trim()!==">")out.push(`<div class="mdq">${inline(m[1].replace(/^>\s?/,""))}</div>`);continue;}
+    if(m=t.match(/^[-*]\s+\[( |x|-)\]\s+(.*)/i)){flush();
+      out.push(`<p class="mdtask">${m[1].toLowerCase()==="x"?"☑":m[1]==="-"?"⊘":"☐"} ${inline(m[2])}</p>`);continue;}
+    if(m=t.match(/^([-*]|\d+\.)\s+(.*)/)){const k=/\d/.test(m[1])?"ol":"ul";if(list&&lt!==k)flushL();lt=k;(list=list||[]).push(m[2]);continue;}
+    if(list){list[list.length-1]+=" "+t;continue;}
+    out.push(`<p class="mdp">${inline(t)}</p>`);
   }
   flush();return out.join("");
 }
